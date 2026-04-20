@@ -21,7 +21,8 @@ from scipy.io import wavfile
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-import moviepy.editor as mpy
+# import moviepy.editor as mpy
+import moviepy as mpy
 from gym.spaces import Box
 from moviepy.audio.AudioClip import CompositeAudioClip, AudioArrayClip
 
