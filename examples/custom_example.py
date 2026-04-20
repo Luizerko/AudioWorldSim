@@ -9,19 +9,6 @@ from scipy.signal import resample
 # import ipdb
 # ipdb.set_trace()
 
-# Give a list of actions and get back a list of observations, from the initial state until the end state 
-def navigation(sim, actions: list[int]):
-    observations = [sim.get_sensor_observations()["audio_sensor"]]
-    for action in actions:
-        if action == 1:
-            observation = np.array(sim.step("move_forward")['audio_sensor'])
-        elif action == 2:
-            observation = np.array(sim.step("turn_left")['audio_sensor'])
-        else:
-            observation = np.array(sim.step("turn_right")['audio_sensor'])
-        observations.append(observation)
-    return np.stack(observations, 0)
-
 # Pass both the path to the audio to be spatialized and the IR and get the spatialized audio
 def convolve_audio(original: str, ir:str, output: str):
     sample_rate_dry, dry_audio = wavfile.read(original)
@@ -46,9 +33,44 @@ def convolve_audio(original: str, ir:str, output: str):
 
     wavfile.write(output, sample_rate_ir, spatial_audio_int16)
 
-SAMPLE_RATE = 44100
+# Give a list of actions and get back a list of observations, from the initial state until the end state 
+def navigation(sim, actions: list[int]):
+    observations = [np.array(sim.get_sensor_observations()["audio_sensor"])]
+    max_len_obs = 0
+    for action in actions:
+        if action == 1:
+            observation = np.array(sim.step("move_forward")['audio_sensor'])
+        elif action == 2:
+            observation = np.array(sim.step("turn_left")['audio_sensor'])
+        else:
+            observation = np.array(sim.step("turn_right")['audio_sensor'])
+        observations.append(observation)
+        
+        if observation.shape[1] > max_len_obs:
+            max_len_obs = observation.shape[1]
+
+    # Padding observations eith the maximum obsevation length because different poses in space can generate IRs of different length
+    padded_observations = [np.pad(observation, pad_width=((0, 0), (0, max_len_obs - observation.shape[1])), mode='constant') for observation in observations]
+    
+    return np.stack(padded_observations, 0)
+
+# Convolving IRs over time on audio to simulate spatial navigation
+def convolve_audio_over_time(original: str):
+    
+    return
 
 if __name__ == '__main__':
+    # Parsing arguments
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument("--input_audio", help="Path to input audio.", type=str, required=True)
+    
+    parser.add_argument("--navigation", help="Choose navigation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
+    
+    parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
+    
+    args = parser.parse_args()
+
     # Scene configuration
     backend_cfg = habitat_sim.SimulatorConfiguration()
     backend_cfg.scene_id = "data/scene_datasets/replica/apartment_0/habitat/mesh_semantic.ply"
@@ -63,7 +85,7 @@ if __name__ == '__main__':
 
     # Acoustics configurations for sensor
     acoustics_cfg = habitat_sim.sensor.RLRAudioPropagationConfiguration()
-    acoustics_cfg.sampleRate = SAMPLE_RATE
+    acoustics_cfg.sampleRate = args.sample_rate
     acoustics_cfg.indirect = True
 
     # Channel layout for sensor
@@ -90,17 +112,23 @@ if __name__ == '__main__':
     audio_sensor = sim.get_agent(0)._sensors["audio_sensor"]
     audio_sensor.setAudioSourceTransform(np.array([2.0, 1.5, 0.50]))
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
-    obs = np.array(sim.get_sensor_observations()["audio_sensor"])
-    wavfile.write('data/sounds/poem/IR.wav', SAMPLE_RATE, obs.T)
 
-    # Navigation testing
-    # List of possible actions is: ['move_forward', 'turn_left', 'turn_right']
-    # observations = np.array(sim.get_sensor_observations()["audio_sensor"])
-    # print(observations.shape)
-    # observations = np.array(sim.step("move_forward")['audio_sensor'])
-    # print(observations.shape)
-    # observations = navigation(sim, [1, 1, 1, 2, 1, 1])
+    # Computing a single IR and spatializing the entire audio based on that response
+    if args.navigation == 'static':
+        obs = np.array(sim.get_sensor_observations()["audio_sensor"])
+        ir_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'IR.wav'
+        wavfile.write(ir_path, args.sample_rate, obs.T)
 
-    convolve_audio('data/sounds/poem/poem.wav', 'data/sounds/poem/IR.wav', 'data/sounds/poem/output.wav')
+        output_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'output.wav'
+        convolve_audio(args.input_audio, ir_path, output_path)
+
+    # Simulation rollout for a certain list of actions
+    elif args.navigation == 'rollout':
+        observations = navigation(sim, [2 for _ in range(5)] + [1 for _ in range(5)])
+
+
+
+        # We don't have physics enabled, so the simulation runs on kinematic mode, meaning agent "teleports". Considering a forward action moves the agent 0.25m, for a reasonable estimate of time, we use 0.25s per time-step
+
 
     sim.close()
