@@ -1,37 +1,55 @@
 import argparse
+import os
+
 import quaternion
 import habitat_sim
+
 import numpy as np
+
+from typing import Union
+
 from scipy.io import wavfile
 from scipy.signal import fftconvolve
 from scipy.signal import resample
 
-# import ipdb
-# ipdb.set_trace()
+# Get an audio and two sample rates, then resample the first audio based on the second sample rate
+def resample_audio(audio1, sample_rate1, sample_rate2):
+    if sample_rate1 != sample_rate2:
+        audio1 = resample(audio1, int((audio1.shape[0]/sample_rate1)*sample_rate2))
+    return audio1
 
 # Pass both the path to the audio to be spatialized and the IR and get the spatialized audio
-def convolve_audio(original: str, ir:str, output: str):
+def convolve_audio(original: str, ir: str, output: Union[str, None] = None, normalize: bool = True):
     sample_rate_dry, dry_audio = wavfile.read(original)
     sample_rate_ir, ir_audio = wavfile.read(ir)
 
     # Resampling input audio if needed
-    if sample_rate_dry != sample_rate_ir:
-        dry_audio = resample(dry_audio, int((dry_audio.shape[0]/sample_rate_dry)*sample_rate_ir))
+    dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
 
     # Convolving mono or stereo input audio
-    if len(dry_audio.shape) == 1:
-        spatial_left = fftconvolve(dry_audio, ir_audio[:, 0], mode='full')
-        spatial_right = fftconvolve(dry_audio, ir_audio[:, 1], mode='full')
-    elif dry_audio.shape[1] == 2:
-        spatial_left = fftconvolve(dry_audio[:, 0], ir_audio[:, 0], mode='full')
-        spatial_right = fftconvolve(dry_audio[:, 1], ir_audio[:, 1], mode='full')
+    # if len(dry_audio.shape) == 1:
+    #     spatial_left = fftconvolve(dry_audio, ir_audio[:, 0], mode='full')
+    #     spatial_right = fftconvolve(dry_audio, ir_audio[:, 1], mode='full')
+    # elif dry_audio.shape[1] == 2:
+    #     spatial_left = fftconvolve(dry_audio[:, 0], ir_audio[:, 0], mode='full')
+    #     spatial_right = fftconvolve(dry_audio[:, 1], ir_audio[:, 1], mode='full')
+    if len(dry_audio.shape) == 2:
+        dry_audio = np.mean(dry_audio, axis=1)
+    spatial_left = fftconvolve(dry_audio, ir_audio[:, 0], mode='full')
+    spatial_right = fftconvolve(dry_audio, ir_audio[:, 1], mode='full')
+
     spatial_audio = np.stack((spatial_left, spatial_right), 1)
 
     # Normalizing to make it properly audible
-    spatial_audio = spatial_audio / np.max(np.abs(spatial_audio))
-    spatial_audio_int16 = np.int16(spatial_audio * np.iinfo(np.int16).max)
+    if normalize:
+        spatial_audio = spatial_audio / np.max(np.abs(spatial_audio))
+        spatial_audio = np.int16(spatial_audio * np.iinfo(np.int16).max)
 
-    wavfile.write(output, sample_rate_ir, spatial_audio_int16)
+    # Writing output if aked for
+    if output is not None:
+        wavfile.write(output, sample_rate_ir, spatial_audio)
+    
+    return spatial_audio
 
 # Give a list of actions and get back a list of observations, from the initial state until the end state 
 def navigation(sim, actions: list[int]):
@@ -55,19 +73,47 @@ def navigation(sim, actions: list[int]):
     return np.stack(padded_observations, 0)
 
 # Convolving IRs over time on audio to simulate spatial navigation
-def convolve_audio_over_time(original: str):
+def convolve_audio_over_time(original: str, irs: list[str], sample_rate_ir: int, time_step: float = 0.25, output: Union[str, None] = None):
+    # Splitting original audio into segments of time_step seconds
+    sample_rate_dry, dry_audio = wavfile.read(original)
+    dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
     
-    return
+    split_size = int(sample_rate_ir*time_step)
+    dry_audios = np.split(dry_audio, [split_size*(i+1) for i in range(len(irs))], axis=0)[:-1]
+
+    navigation_path = original[:original.rfind("/")+1] + 'navigation/'
+    original_paths = [navigation_path + f'original_{i+1}.wav' for i in range(len(dry_audios))]
+    for i, dry_audio in enumerate(dry_audios):
+        wavfile.write(original_paths[i], sample_rate_ir, dry_audio)
+
+    # Spatializing every piece of audio
+    spatialized_audios = [convolve_audio(original, ir, normalize=False) for original, ir in zip(original_paths, irs)]
+
+    # Combining spatialized audio into single output
+    final_audio_size = split_size * (len(irs) - 1) + len(spatialized_audios[-1])
+    spatialized_navigation = np.zeros((final_audio_size, 2))
+    for i, spatialized_audio in enumerate(spatialized_audios):
+        spatialized_navigation[i*split_size : i*split_size + len(spatialized_audio)] += spatialized_audio
+
+    # Normalizing final audio
+    spatialized_navigation = spatialized_navigation / np.max(np.abs(spatialized_navigation))
+    spatialized_navigation = np.int16(spatialized_navigation * np.iinfo(np.int16).max)
+
+    if output is not None:
+        wavfile.write(output, sample_rate_ir, spatialized_navigation)
+
+    return spatialized_navigation
 
 if __name__ == '__main__':
     # Parsing arguments
     parser = argparse.ArgumentParser()
     
     parser.add_argument("--input_audio", help="Path to input audio.", type=str, required=True)
-    
-    parser.add_argument("--navigation", help="Choose navigation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
-    
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
+
+    parser.add_argument("--navigation", help="Choose navigation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
+
+    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.25m, for a reasonable default estimate of time, we use 0.25s per time-step.", type=float, default=0.25)
     
     args = parser.parse_args()
 
@@ -105,30 +151,43 @@ if __name__ == '__main__':
     # Initializing an agent
     agent = sim.initialize_agent(0)
     agent_state = habitat_sim.AgentState()
-    agent_state.position = np.array([0.5, 0.8, 0])
+    agent_state.position = np.array([1.0, 0.0, 0.0])
     agent.set_state(agent_state)
 
     # Initializing a sound source
     audio_sensor = sim.get_agent(0)._sensors["audio_sensor"]
-    audio_sensor.setAudioSourceTransform(np.array([2.0, 1.5, 0.50]))
+    audio_sensor.setAudioSourceTransform(np.array([2.0, 1.5, 0.0]))
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
 
     # Computing a single IR and spatializing the entire audio based on that response
     if args.navigation == 'static':
         obs = np.array(sim.get_sensor_observations()["audio_sensor"])
-        ir_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'IR.wav'
+        
+        static_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'static/'
+        os.makedirs(static_path, exist_ok=True)
+        ir_path = static_path + 'IR.wav'
         wavfile.write(ir_path, args.sample_rate, obs.T)
 
-        output_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'output.wav'
+        output_path = static_path + 'output.wav'
         convolve_audio(args.input_audio, ir_path, output_path)
 
     # Simulation rollout for a certain list of actions
     elif args.navigation == 'rollout':
-        observations = navigation(sim, [2 for _ in range(5)] + [1 for _ in range(5)])
+        observations = navigation(sim, [2 for _ in range(9)] + [1 for _ in range(0)])
 
+        # Saving each IR to a file
+        navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'navigation/'
+        os.makedirs(navigation_path, exist_ok=True)
+        ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(observations.shape[0])]
+        for i, observation in enumerate(observations):
+            wavfile.write(ir_paths[i], args.sample_rate, observation.T)
 
+        # import ipdb
+        # ipdb.set_trace()
 
-        # We don't have physics enabled, so the simulation runs on kinematic mode, meaning agent "teleports". Considering a forward action moves the agent 0.25m, for a reasonable estimate of time, we use 0.25s per time-step
+        # Running the simulation on audio
+        output_path = navigation_path + 'output.wav'
+        convolve_audio_over_time(args.input_audio, ir_paths, args.sample_rate, args.time_step, output_path)
 
 
     sim.close()
