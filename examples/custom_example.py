@@ -72,42 +72,44 @@ def navigation(sim, actions: list[int]):
     
     return np.stack(padded_observations, 0)
 
+### NEEDS TO BE REIMPLEMENTED IF USED ONE DAY ###
 # Convolving IRs over time on audio to simulate spatial navigation
-def convolve_audio_over_time(original: str, irs: list[str], sample_rate_ir: int, time_step: float = 0.25, output: Union[str, None] = None):
-    # Splitting original audio into segments of time_step seconds
-    sample_rate_dry, dry_audio = wavfile.read(original)
-    dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
+# def convolve_audio_over_time(original: str, irs: list[str], sample_rate_ir: int, time_step: float = 0.25, output: Union[str, None] = None):
+#     # Splitting original audio into segments of time_step seconds
+#     sample_rate_dry, dry_audio = wavfile.read(original)
+#     dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
     
-    split_size = int(sample_rate_ir*time_step)
-    dry_audios = np.split(dry_audio, [split_size*(i+1) for i in range(len(irs))], axis=0)[:-1]
+#     split_size = int(sample_rate_ir*time_step)
+#     dry_audios = np.split(dry_audio, [split_size*(i+1) for i in range(len(irs))], axis=0)[:-1]
 
-    navigation_path = original[:original.rfind("/")+1] + 'navigation/'
-    original_paths = [navigation_path + f'original_{i+1}.wav' for i in range(len(dry_audios))]
-    for i, dry_audio in enumerate(dry_audios):
-        wavfile.write(original_paths[i], sample_rate_ir, dry_audio)
+#     navigation_path = original[:original.rfind("/")+1] + 'navigation/'
+#     original_paths = [navigation_path + f'original_{i+1}.wav' for i in range(len(dry_audios))]
+#     for i, dry_audio in enumerate(dry_audios):
+#         wavfile.write(original_paths[i], sample_rate_ir, dry_audio)
 
-    # Spatializing every piece of audio
-    spatialized_audios = [convolve_audio(original, ir, normalize=False) for original, ir in zip(original_paths, irs)]
+#     # Spatializing every piece of audio
+#     spatialized_audios = [convolve_audio(original, ir, normalize=False) for original, ir in zip(original_paths, irs)]
 
-    # Combining spatialized audio into single output
-    final_audio_size = split_size * (len(irs) - 1) + len(spatialized_audios[-1])
-    spatialized_navigation = np.zeros((final_audio_size, 2))
-    for i, spatialized_audio in enumerate(spatialized_audios):
-        spatialized_navigation[i*split_size : i*split_size + len(spatialized_audio)] += spatialized_audio
+#     # Combining spatialized audio into single output
+#     final_audio_size = split_size * (len(irs) - 1) + len(spatialized_audios[-1])
+#     spatialized_navigation = np.zeros((final_audio_size, 2))
+#     for i, spatialized_audio in enumerate(spatialized_audios):
+#         spatialized_navigation[i*split_size : i*split_size + len(spatialized_audio)] += spatialized_audio
 
-    # Normalizing final audio
-    spatialized_navigation = spatialized_navigation / np.max(np.abs(spatialized_navigation))
-    spatialized_navigation = np.int16(spatialized_navigation * np.iinfo(np.int16).max)
+#     # Normalizing final audio
+#     spatialized_navigation = spatialized_navigation / np.max(np.abs(spatialized_navigation))
+#     spatialized_navigation = np.int16(spatialized_navigation * np.iinfo(np.int16).max)
 
-    if output is not None:
-        wavfile.write(output, sample_rate_ir, spatialized_navigation)
+#     if output is not None:
+#         wavfile.write(output, sample_rate_ir, spatialized_navigation)
 
-    return spatialized_navigation
+#     return spatialized_navigation
 
 if __name__ == '__main__':
     # Parsing arguments
     parser = argparse.ArgumentParser()
     
+    parser.add_argument("--replica_mesh", help="name of replica mesh to be used.", type=str, required=True)
     parser.add_argument("--input_audio", help="Path to input audio.", type=str, required=True)
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
 
@@ -119,15 +121,29 @@ if __name__ == '__main__':
 
     # Scene configuration
     backend_cfg = habitat_sim.SimulatorConfiguration()
-    backend_cfg.scene_id = "data/scene_datasets/replica/apartment_0/habitat/mesh_semantic.ply"
+    backend_cfg.scene_id = f"data/scene_datasets/replica/{args.replica_mesh}/habitat/mesh_semantic.ply"
     backend_cfg.scene_dataset_config_file = "data/scene_datasets/replica/replica.scene_dataset_config.json"
     backend_cfg.load_semantic_mesh = True
     backend_cfg.enable_physics = False
 
-    # Simulation initialization 
+    # Simulation initialization and agent movement configuration 
     agent_cfg = habitat_sim.agent.AgentConfiguration()
+    # agent_cfg.action_space = {
+    #     "move_forward": habitat_sim.agent.ActionSpec(
+    #         "move_forward", habitat_sim.agent.ActuationSpec(amount=0.2) 
+    #     ),
+    #     "turn_left": habitat_sim.agent.ActionSpec(
+    #         "turn_left", habitat_sim.agent.ActuationSpec(amount=180.0) 
+    #     ),
+    #     "turn_right": habitat_sim.agent.ActionSpec(
+    #         "turn_right", habitat_sim.agent.ActuationSpec(amount=10.0)
+    #     ),
+    # }
     cfg = habitat_sim.Configuration(backend_cfg, [agent_cfg])
     sim = habitat_sim.Simulator(cfg)
+
+    # Setting navmesh path for searching navigable points
+    sim.pathfinder.load_nav_mesh(os.path.join(f"data/scene_datasets/replica/{args.replica_mesh}/habitat/mesh_semantic.navmesh"))
 
     # Acoustics configurations for sensor
     acoustics_cfg = habitat_sim.sensor.RLRAudioPropagationConfiguration()
@@ -152,11 +168,12 @@ if __name__ == '__main__':
     agent = sim.initialize_agent(0)
     agent_state = habitat_sim.AgentState()
     agent_state.position = np.array([1.0, 0.0, 0.0])
+    agent_state.rotation = np.array([0.0, 1.0, 0.0, 0.0])
     agent.set_state(agent_state)
 
     # Initializing a sound source
     audio_sensor = sim.get_agent(0)._sensors["audio_sensor"]
-    audio_sensor.setAudioSourceTransform(np.array([2.0, 1.5, 0.0]))
+    audio_sensor.setAudioSourceTransform(np.array([1.0, 1.5, 0.0]))
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
 
     # Computing a single IR and spatializing the entire audio based on that response
@@ -173,7 +190,7 @@ if __name__ == '__main__':
 
     # Simulation rollout for a certain list of actions
     elif args.navigation == 'rollout':
-        observations = navigation(sim, [2 for _ in range(9)] + [1 for _ in range(0)])
+        observations = navigation(sim, [2 for _ in range(1)] + [1 for _ in range(0)])
 
         # Saving each IR to a file
         navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'navigation/'
@@ -186,8 +203,11 @@ if __name__ == '__main__':
         # ipdb.set_trace()
 
         # Running the simulation on audio
-        output_path = navigation_path + 'output.wav'
-        convolve_audio_over_time(args.input_audio, ir_paths, args.sample_rate, args.time_step, output_path)
+        # output_path = navigation_path + 'output.wav'
+        # convolve_audio_over_time(args.input_audio, ir_paths, args.sample_rate, args.time_step, output_path)
 
+    # Sanity check for the mesh based on source visibility and ray efficiency
+    print(audio_sensor.sourceIsVisible())
+    print(audio_sensor.getRayEfficiency())
 
     sim.close()
