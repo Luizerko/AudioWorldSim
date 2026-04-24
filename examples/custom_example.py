@@ -27,12 +27,6 @@ def convolve_audio(original: str, ir: str, output: Union[str, None] = None, norm
     dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
 
     # Convolving mono or stereo input audio
-    # if len(dry_audio.shape) == 1:
-    #     spatial_left = fftconvolve(dry_audio, ir_audio[:, 0], mode='full')
-    #     spatial_right = fftconvolve(dry_audio, ir_audio[:, 1], mode='full')
-    # elif dry_audio.shape[1] == 2:
-    #     spatial_left = fftconvolve(dry_audio[:, 0], ir_audio[:, 0], mode='full')
-    #     spatial_right = fftconvolve(dry_audio[:, 1], ir_audio[:, 1], mode='full')
     if len(dry_audio.shape) == 2:
         dry_audio = np.mean(dry_audio, axis=1)
     spatial_left = fftconvolve(dry_audio, ir_audio[:, 0], mode='full')
@@ -109,7 +103,7 @@ if __name__ == '__main__':
     # Parsing arguments
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--replica_mesh", help="name of replica mesh to be used.", type=str, required=True)
+    parser.add_argument("--dataset_instance", help="Name of the dot-separate dataset and instance to be used. Example: mp3d.17DRP5sb8fy", type=str, required=True)
     parser.add_argument("--input_audio", help="Path to input audio.", type=str, required=True)
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
 
@@ -119,10 +113,19 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
+    # Getting dataset and mesh
+    dataset, instance = args.dataset_instance.split(".")
+
     # Scene configuration
     backend_cfg = habitat_sim.SimulatorConfiguration()
-    backend_cfg.scene_id = f"data/scene_datasets/replica/{args.replica_mesh}/habitat/mesh_semantic.ply"
-    backend_cfg.scene_dataset_config_file = "data/scene_datasets/replica/replica.scene_dataset_config.json"
+    
+    if dataset == "replica":
+        backend_cfg.scene_id = f"data/scene_datasets/{dataset}/{instance}/habitat/mesh_semantic.ply"
+    elif dataset == "mp3d":
+        dataset_aux = dataset + "_example"
+        backend_cfg.scene_id = f"data/scene_datasets/{dataset_aux}/{instance}/{instance}.glb"
+        
+    backend_cfg.scene_dataset_config_file = f"data/scene_datasets/{dataset}/{dataset}.scene_dataset_config.json"
     backend_cfg.load_semantic_mesh = True
     backend_cfg.enable_physics = False
 
@@ -143,7 +146,11 @@ if __name__ == '__main__':
     sim = habitat_sim.Simulator(cfg)
 
     # Setting navmesh path for searching navigable points
-    sim.pathfinder.load_nav_mesh(os.path.join(f"data/scene_datasets/replica/{args.replica_mesh}/habitat/mesh_semantic.navmesh"))
+    if dataset == "replica":
+        sim.pathfinder.load_nav_mesh(os.path.join(f"data/scene_datasets/{dataset}/{instance}/habitat/mesh_semantic.navmesh"))
+    elif dataset == "mp3d":
+        dataset_aux = dataset + "_example"
+        sim.pathfinder.load_nav_mesh(os.path.join(f"data/scene_datasets/{dataset_aux}/{instance}/{instance}.navmesh"))
 
     # Acoustics configurations for sensor
     acoustics_cfg = habitat_sim.sensor.RLRAudioPropagationConfiguration()
@@ -159,7 +166,12 @@ if __name__ == '__main__':
     audio_sensor_spec = habitat_sim.AudioSensorSpec()
     audio_sensor_spec.uuid = "audio_sensor"
     audio_sensor_spec.position = [0.0, 1.5, 0.0]
-    audio_sensor_spec.enableMaterials = False
+
+    if dataset == "replica":
+        audio_sensor_spec.enableMaterials = False
+    elif dataset == "mp3d":
+        audio_sensor_spec.enableMaterials = True
+
     audio_sensor_spec.acousticConfig = acoustics_cfg
     audio_sensor_spec.channelLayout = channel_layout
     sim.add_sensor(audio_sensor_spec)
