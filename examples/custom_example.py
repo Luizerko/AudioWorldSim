@@ -46,9 +46,8 @@ def convolve_audio(original: str, ir: str, output: Union[str, None] = None, norm
     return spatial_audio
 
 # Give a list of actions and get back a list of observations, from the initial state until the end state 
-def navigation(sim, actions: list[int]):
+def navigation(sim: habitat_sim.Simulator, actions: list[int]):
     observations = [np.array(sim.get_sensor_observations()["audio_sensor"])]
-    max_len_obs = 0
     for action in actions:
         if action == 1:
             observation = np.array(sim.step("move_forward")['audio_sensor'])
@@ -57,47 +56,88 @@ def navigation(sim, actions: list[int]):
         else:
             observation = np.array(sim.step("turn_right")['audio_sensor'])
         observations.append(observation)
+    
+    return observations
+
+# Crossfading for mixing audio from adjacent time steps
+def crossfade(x1, x2, mixing_time, sample_rate):
+    crossfade_samples = int(mixing_time * sample_rate)
+    x2_weight = np.arange(crossfade_samples + 1) / crossfade_samples
+    x1_weight = np.flip(x2_weight)
+    x3 = [x1[:, :crossfade_samples+1] * x1_weight + x2[:, :crossfade_samples+1] * x2_weight, x2[:, crossfade_samples+1:]]
+
+    return np.concatenate(x3, axis=1)
+
+# Get a list of observations through time and get the output audio of the navigation
+def convolve_audio_over_time(original: str, observations: list[np.array], sample_rate: int, time_step: float, output: Union[str, None] = None, normalize: bool = True, crossfade_bool: bool = True):
+    # Reading input audio, resampling and converting to mono if needed
+    sample_rate_dry, dry_audio = wavfile.read(original)
+    dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate)
+    if len(dry_audio.shape) == 2:
+        dry_audio = np.mean(dry_audio, axis=1)
+
+    # Navigating and spatializing sound
+    num_samples_per_step = int(sample_rate*time_step)
+    spatial_audio = []
+    last_observation = None
+    current_index = 0
+    for observation in observations:
+        observation = observation.T
+
+        # Computing indices for amount of history needed, start of our audio covolution and end of audio convolution. Notice that we get a 'valid' convolution only when we have an audio segment of length observation.shape[0] + num_samples_per_step - 1
+        needed_history = observation.shape[0] - 1
+        start_index = current_index - needed_history
+        end_index = current_index + num_samples_per_step
+
+        # Handling the case in which we dont have enough sound history yet
+        if start_index < 0:
+            sound_segment = dry_audio[current_index:end_index]
+            spatial_left = fftconvolve(sound_segment, observation[:, 0], mode='full')
+            spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='full')
+            spatial_left_right = np.stack((spatial_left[:num_samples_per_step], spatial_right[:num_samples_per_step]), 1)    
+
+        # Handling the case in which we have enough history, so we can consider reverb
+        else:
+            # Handling sound warping in case the file "runs out of sound"    
+            if end_index > len(dry_audio):
+                sound_segment = np.concatenate((dry_audio[start_index:], dry_audio[:end_index % len(dry_audio)]), axis=0)
+            else:
+                sound_segment = dry_audio[start_index:end_index]
+
+            spatial_left = fftconvolve(sound_segment, observation[:, 0], mode='valid')
+            spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='valid')
+            spatial_left_right = np.stack((spatial_left, spatial_right), 1)
+
+        # Crossfading spatial segments if asked for
+        if crossfade_bool and last_observation is not None:
+            if start_index < 0:
+                spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='full')[:num_samples_per_step]
+                spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='full')[:num_samples_per_step]
+            else:
+                spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='valid')
+                spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='valid')
+
+            spatial_left_right_old = np.stack((spatial_left_old, spatial_right_old), axis=1)
+            spatial_left_right = crossfade(spatial_left_right_old.T, spatial_left_right.T, 0.05, sample_rate).T
+
+        # Appending current audio spatialization to our spatial audio array
+        spatial_audio.append(spatial_left_right)
         
-        if observation.shape[1] > max_len_obs:
-            max_len_obs = observation.shape[1]
+        last_observation = observation
+        current_index = (current_index + num_samples_per_step) % len(dry_audio)
 
-    # Padding observations eith the maximum obsevation length because different poses in space can generate IRs of different length
-    padded_observations = [np.pad(observation, pad_width=((0, 0), (0, max_len_obs - observation.shape[1])), mode='constant') for observation in observations]
-    
-    return np.stack(padded_observations, 0)
+    final_audio = np.concatenate(spatial_audio, axis=0)
 
-### NEEDS TO BE REIMPLEMENTED IF USED ONE DAY ###
-# Convolving IRs over time on audio to simulate spatial navigation
-# def convolve_audio_over_time(original: str, irs: list[str], sample_rate_ir: int, time_step: float = 0.25, output: Union[str, None] = None):
-#     # Splitting original audio into segments of time_step seconds
-#     sample_rate_dry, dry_audio = wavfile.read(original)
-#     dry_audio = resample_audio(dry_audio, sample_rate_dry, sample_rate_ir)
-    
-#     split_size = int(sample_rate_ir*time_step)
-#     dry_audios = np.split(dry_audio, [split_size*(i+1) for i in range(len(irs))], axis=0)[:-1]
+    # Normalize to make it properly audible
+    if normalize:
+        final_audio = final_audio / np.max(np.abs(final_audio))
+        final_audio = np.int16(final_audio * np.iinfo(np.int16).max)
 
-#     navigation_path = original[:original.rfind("/")+1] + 'navigation/'
-#     original_paths = [navigation_path + f'original_{i+1}.wav' for i in range(len(dry_audios))]
-#     for i, dry_audio in enumerate(dry_audios):
-#         wavfile.write(original_paths[i], sample_rate_ir, dry_audio)
+    if output is not None:
+        wavfile.write(output, sample_rate, final_audio)
 
-#     # Spatializing every piece of audio
-#     spatialized_audios = [convolve_audio(original, ir, normalize=False) for original, ir in zip(original_paths, irs)]
+    return final_audio
 
-#     # Combining spatialized audio into single output
-#     final_audio_size = split_size * (len(irs) - 1) + len(spatialized_audios[-1])
-#     spatialized_navigation = np.zeros((final_audio_size, 2))
-#     for i, spatialized_audio in enumerate(spatialized_audios):
-#         spatialized_navigation[i*split_size : i*split_size + len(spatialized_audio)] += spatialized_audio
-
-#     # Normalizing final audio
-#     spatialized_navigation = spatialized_navigation / np.max(np.abs(spatialized_navigation))
-#     spatialized_navigation = np.int16(spatialized_navigation * np.iinfo(np.int16).max)
-
-#     if output is not None:
-#         wavfile.write(output, sample_rate_ir, spatialized_navigation)
-
-#     return spatialized_navigation
 
 if __name__ == '__main__':
     # Parsing arguments
@@ -162,15 +202,15 @@ if __name__ == '__main__':
     channel_layout.type = habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Binaural
     channel_layout.channelCount = 2
 
-    # Sensor configuration
+    # Sensor configuration. Avoid setting sensor position so that it automatically follows the agent everywhere
     audio_sensor_spec = habitat_sim.AudioSensorSpec()
     audio_sensor_spec.uuid = "audio_sensor"
-    audio_sensor_spec.position = [0.0, 1.5, 0.0]
+    # audio_sensor_spec.position = [0.0, 1.5, 0.0]
 
     if dataset == "replica":
         audio_sensor_spec.enableMaterials = False
     elif dataset == "mp3d":
-        audio_sensor_spec.enableMaterials = True
+        audio_sensor_spec.enableMaterials = False
 
     audio_sensor_spec.acousticConfig = acoustics_cfg
     audio_sensor_spec.channelLayout = channel_layout
@@ -185,7 +225,7 @@ if __name__ == '__main__':
 
     # Initializing a sound source
     audio_sensor = sim.get_agent(0)._sensors["audio_sensor"]
-    audio_sensor.setAudioSourceTransform(np.array([1.0, 1.5, 0.0]))
+    audio_sensor.setAudioSourceTransform(np.array([3.0, 1.5, 0.0]))
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
 
     # Computing a single IR and spatializing the entire audio based on that response
@@ -202,12 +242,12 @@ if __name__ == '__main__':
 
     # Simulation rollout for a certain list of actions
     elif args.navigation == 'rollout':
-        observations = navigation(sim, [2 for _ in range(1)] + [1 for _ in range(0)])
+        observations = navigation(sim, [2 for _ in range(36)] + [1 for _ in range(0)])
 
         # Saving each IR to a file
         navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'navigation/'
         os.makedirs(navigation_path, exist_ok=True)
-        ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(observations.shape[0])]
+        ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(len(observations))]
         for i, observation in enumerate(observations):
             wavfile.write(ir_paths[i], args.sample_rate, observation.T)
 
@@ -215,8 +255,8 @@ if __name__ == '__main__':
         # ipdb.set_trace()
 
         # Running the simulation on audio
-        # output_path = navigation_path + 'output.wav'
-        # convolve_audio_over_time(args.input_audio, ir_paths, args.sample_rate, args.time_step, output_path)
+        output_path = navigation_path + 'output.wav'
+        convolve_audio_over_time(args.input_audio, observations, args.sample_rate, args.time_step, output_path, True, True)
 
     # Sanity check for the mesh based on source visibility and ray efficiency
     print(audio_sensor.sourceIsVisible())
