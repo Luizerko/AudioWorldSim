@@ -81,6 +81,7 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
     spatial_audio = []
     last_observation = None
     current_index = 0
+    warped = False
     for observation in observations:
         observation = observation.T
 
@@ -89,33 +90,33 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
         start_index = current_index - needed_history
         end_index = current_index + num_samples_per_step
 
-        # Handling the case in which we dont have enough sound history yet
+        # Handling the case in which we dont have enough sound history yet or we have finished the audio file
         if start_index < 0:
-            sound_segment = dry_audio[current_index:end_index]
-            spatial_left = fftconvolve(sound_segment, observation[:, 0], mode='full')
-            spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='full')
-            spatial_left_right = np.stack((spatial_left[:num_samples_per_step], spatial_right[:num_samples_per_step]), 1)    
+            # Handling sound warping in case the file "runs out of sound"
+            if warped:
+                sound_segment = np.concatenate((dry_audio[start_index:], dry_audio[:end_index]), axis=0)
+            else:
+                silence = np.zeros(abs(start_index))
+                actual_sound = dry_audio[:end_index]
+                sound_segment = np.concatenate((silence, actual_sound))
 
         # Handling the case in which we have enough history, so we can consider reverb
         else:
             # Handling sound warping in case the file "runs out of sound"    
             if end_index > len(dry_audio):
                 sound_segment = np.concatenate((dry_audio[start_index:], dry_audio[:end_index % len(dry_audio)]), axis=0)
+                warped = True
             else:
                 sound_segment = dry_audio[start_index:end_index]
 
-            spatial_left = fftconvolve(sound_segment, observation[:, 0], mode='valid')
-            spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='valid')
-            spatial_left_right = np.stack((spatial_left, spatial_right), 1)
+        spatial_left = fftconvolve(sound_segment, observation[:, 0], mode='valid')
+        spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='valid')
+        spatial_left_right = np.stack((spatial_left, spatial_right), 1)
 
         # Crossfading spatial segments if asked for
         if crossfade_bool and last_observation is not None:
-            if start_index < 0:
-                spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='full')[:num_samples_per_step]
-                spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='full')[:num_samples_per_step]
-            else:
-                spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='valid')
-                spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='valid')
+            spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='valid')
+            spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='valid')
 
             spatial_left_right_old = np.stack((spatial_left_old, spatial_right_old), axis=1)
             spatial_left_right = crossfade(spatial_left_right_old.T, spatial_left_right.T, 0.05, sample_rate).T
@@ -250,9 +251,6 @@ if __name__ == '__main__':
         ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(len(observations))]
         for i, observation in enumerate(observations):
             wavfile.write(ir_paths[i], args.sample_rate, observation.T)
-
-        # import ipdb
-        # ipdb.set_trace()
 
         # Running the simulation on audio
         output_path = navigation_path + 'output.wav'
