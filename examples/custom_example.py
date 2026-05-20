@@ -149,12 +149,12 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
 
 
 # Plotting navmesh
-def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel=0.01, height=0.0, trajectory=[], inter_states=[], inter_direcs=[]):
+def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel: float = 0.01, height: float = 0.0, trajectory=[], inter_pos=[], inter_direcs=[]):
     # Plotting topdown map
     topdown_map = sim.pathfinder.get_topdown_view(meters_per_pixel, height)
     view_image = np.uint8(topdown_map * 255)
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(9, 9))
     plt.imshow(view_image, cmap="gray")
     plt.title("Navigable Area")
     plt.axis("off")
@@ -171,15 +171,15 @@ def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel=0.01, height=
         elif i == len(trajectory)-1:
             plt.plot(px, py, marker="o", markersize=6, alpha=0.8, color='r')
         else:
-            plt.plot(px, py, marker="o", markersize=6, alpha=0.6, color='g')
+            plt.plot(px, py, marker="o", markersize=6, alpha=0.8, color='g')
 
         # If available, we also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
-            for p in inter_direcs[i]:
-                plt.quiver(px, py, p[0], -p[2], scale=10, alpha=0.6, color='g')
+            for v in inter_direcs[i]:
+                plt.quiver(px, py, v[0], -v[2], scale=15, alpha=0.6, color='g')
 
-        if len(inter_states) > 0 and i < len(trajectory)-1:
-            for p in inter_states[i]:
+        if len(inter_pos) > 0 and i < len(trajectory)-1:
+            for p in inter_pos[i]:
                 px = (p[0] - bounds[0][0])/meters_per_pixel
                 py = (p[2] - bounds[0][2])/meters_per_pixel
                 plt.plot(px, py, marker="x", markersize=6, alpha=0.6, color='g')
@@ -188,10 +188,14 @@ def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel=0.01, height=
 
 
 # Uses the navmesh to navigate the space properly
-def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor):
+def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, verbose: bool = False):
     # Getting a random (but valid) start and end
-    # sim.pathfinder.seed(random.randint(0, 1000))
-    sim.pathfinder.seed(3)
+    seed = random.randint(0, 1000)
+    print(seed)
+    sim.pathfinder.seed(seed)
+    # Seeds to test
+    # 3, 776 -> Easy seeds
+    # 487, 275 -> Hard seeds
     sample1 = sim.pathfinder.get_random_navigable_point()
     sample2 = sim.pathfinder.get_random_navigable_point()
 
@@ -207,10 +211,10 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     if not found_path:
         return []
 
-    visualize_navmesh(sim, trajectory=path_points)
-
-    # Putting sound at the target
-    sensor.setAudioSourceTransform(path_points[-1])
+    # Putting sound at the target, but at the agent's height
+    target_position = np.copy(path_points[-1])
+    target_position[1] = 1.5
+    sensor.setAudioSourceTransform(target_position)
 
     # Initializing agent on initial position and no rotation (front to [0, 0, -1])
     agent_state = habitat_sim.AgentState()
@@ -220,11 +224,11 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
 
     # Making agent go through trajectory while saving audio observations and overall steps for plotting later on
     observations = []
-    inter_states = []
+    inter_pos = []
     inter_direcs = []
     for point in path_points[1:]:
-        inter_states_aux = []
-        inter_direcs_aux = []
+        inter_pos_aux = []
+        inter_direcs_aux = [habitat_sim.utils.common.quat_rotate_vector(agent.get_state().rotation, np.array([0.0, 0.0, -1.0]))]
         while True:
             # Computing current forward of the agent
             current_state = agent.get_state()
@@ -238,7 +242,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         
             # Making agent turn until it's aligned enough with the next point
             angle_diff = (target_angle - heading_angle + math.pi) % (2*math.pi) - math.pi
-            if abs(angle_diff) > math.radians(10):
+            if abs(angle_diff) > math.radians(5):
                 if angle_diff > 0:
                     observations.append(np.array(sim.step("turn_right")['audio_sensor']))
                 else:
@@ -247,22 +251,43 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                 inter_direcs_aux.append(heading_vector)
                 break
 
+        prev_dist = np.inf
         while True:
             # Computing target vector
             current_state = agent.get_state()
-            inter_states_aux.append(current_state.position)
+            inter_pos_aux.append(current_state.position)
             target_vector = np.array([point[0] - current_state.position[0], point[2] - current_state.position[2]])
             
             # Taking steps forward until agent reaches the (next) target point
-            if np.linalg.norm(target_vector) > 0.5:
+            target_dist = np.linalg.norm(target_vector)
+            if target_dist > 0.25:
+                # Making sure the agent doesn't get stuck
+                if prev_dist <= target_dist:
+                    agent_state = habitat_sim.AgentState()
+                    agent_state.position = point
+                    agent_state.rotation = current_state.rotation
+                    agent.set_state(agent_state)
+
+                    observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                    break
+
+                prev_dist = target_dist
                 observations.append(np.array(sim.step("move_forward")['audio_sensor']))
             else:
+                agent_state = habitat_sim.AgentState()
+                agent_state.position = point
+                agent_state.rotation = current_state.rotation
+                agent.set_state(agent_state)
+                
+                observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
                 break
 
-        inter_states.append(inter_states_aux)
+        inter_pos.append(inter_pos_aux)
         inter_direcs.append(inter_direcs_aux)
 
-    visualize_navmesh(sim, trajectory=path_points, inter_states=inter_states, inter_direcs=inter_direcs)
+
+    if verbose:
+        visualize_navmesh(sim, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs)
 
     return observations
 
@@ -371,9 +396,9 @@ if __name__ == '__main__':
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
 
     # Visualizing navmesh for sanity check
-    if args.verbose:
-        height = sim.pathfinder.get_random_navigable_point()[1]
-        visualize_navmesh(sim, meters_per_pixel=0.01, height=height)
+    # if args.verbose:
+    #     height = sim.pathfinder.get_random_navigable_point()[1]
+    #     visualize_navmesh(sim, meters_per_pixel=0.01, height=height)
 
     # Computing a single IR and spatializing the entire audio based on that response
     if args.simulation == 'static':
@@ -405,7 +430,7 @@ if __name__ == '__main__':
             convolve_audio_over_time(args.input_audio, observations, args.sample_rate, args.time_step, output_path, True, True)
 
         elif args.navigation == 'target':
-            target_navigation(sim, agent, audio_sensor)
+            target_navigation(sim, agent, audio_sensor, args.verbose)
 
     # Sanity check for the mesh based on source visibility and ray efficiency
     if args.verbose:
