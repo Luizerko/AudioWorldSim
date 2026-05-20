@@ -242,7 +242,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         
             # Making agent turn until it's aligned enough with the next point
             angle_diff = (target_angle - heading_angle + math.pi) % (2*math.pi) - math.pi
-            if abs(angle_diff) > math.radians(5):
+            if abs(angle_diff) > math.radians(2.2):
                 if angle_diff > 0:
                     observations.append(np.array(sim.step("turn_right")['audio_sensor']))
                 else:
@@ -260,7 +260,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
             
             # Taking steps forward until agent reaches the (next) target point
             target_dist = np.linalg.norm(target_vector)
-            if target_dist > 0.25:
+            if target_dist > 0.11:
                 # Making sure the agent doesn't get stuck
                 if prev_dist <= target_dist:
                     agent_state = habitat_sim.AgentState()
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
     parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'simple', agent will take some unverified rotations and move forward. If 'target', agent will use the navmesh to try and navigate from point A to point B.", type=str, choices=['simple', 'target'], default='simple')
 
-    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.25m, for a reasonable default estimate of time, we use 0.5s per time-step.", type=float, default=0.5)
+    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.2m, for a reasonable default estimate of time, we use 0.25s per time-step.", type=float, default=0.25)
 
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
     
@@ -330,13 +330,13 @@ if __name__ == '__main__':
     # Configuring amount of movement per step
     agent_cfg.action_space = {
         "move_forward": habitat_sim.agent.ActionSpec(
-            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.25) 
+            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.2) 
         ),
         "turn_left": habitat_sim.agent.ActionSpec(
-            "turn_left", habitat_sim.agent.ActuationSpec(amount=5.0) 
+            "turn_left", habitat_sim.agent.ActuationSpec(amount=4.0) 
         ),
         "turn_right": habitat_sim.agent.ActionSpec(
-            "turn_right", habitat_sim.agent.ActuationSpec(amount=5.0)
+            "turn_right", habitat_sim.agent.ActuationSpec(amount=4.0)
         ),
     }
 
@@ -435,9 +435,10 @@ if __name__ == '__main__':
         elif args.navigation == 'target':
             # Tested seeds:
             # 3, 776, 249 -> Easy seeds
-            # 487, 275, 779 -> Hard seeds
+            # 487, 275, 779 -> Medium seeds
+            # 420 -> Hard seeds
             seed = random.randint(0, 1000)
-            seed = 3
+            # seed = 420
             print(seed)
 
             # Creating seed folder, but not saving each IR
