@@ -149,14 +149,14 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
 
 
 # Plotting navmesh
-def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel: float = 0.01, height: float = 0.0, trajectory=[], inter_pos=[], inter_direcs=[]):
+def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_per_pixel: float = 0.01, height: float = 0.0, trajectory=[], inter_pos=[], inter_direcs=[]):
     # Plotting topdown map
     topdown_map = sim.pathfinder.get_topdown_view(meters_per_pixel, height)
     view_image = np.uint8(topdown_map * 255)
 
     plt.figure(figsize=(9, 9))
     plt.imshow(view_image, cmap="gray")
-    plt.title("Navigable Area")
+    plt.title("Navigable Area (+ Agent Navigation)")
     plt.axis("off")
 
     # Plotting potential trajetory of the agent
@@ -184,18 +184,18 @@ def visualize_navmesh(sim: habitat_sim.Simulator, meters_per_pixel: float = 0.01
                 py = (p[2] - bounds[0][2])/meters_per_pixel
                 plt.plot(px, py, marker="x", markersize=6, alpha=0.6, color='g')
 
-    plt.show()
+    # Plotting or saving
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename, bbox_inches="tight", dpi=300)
+    plt.close()
 
 
-# Uses the navmesh to navigate the space properly
-def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, verbose: bool = False):
+# Uses the navmesh to sample start and end points, then uses the the habitat sim shortest path to make an action plan for movement and finally moves the agent with simulation actions so it can get from start to finish. Audio sensor observations are captured throughout the whole process
+def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, seed: int = 3, filename: str = None):
     # Getting a random (but valid) start and end
-    seed = random.randint(0, 1000)
-    print(seed)
     sim.pathfinder.seed(seed)
-    # Seeds to test
-    # 3, 776 -> Easy seeds
-    # 487, 275 -> Hard seeds
     sample1 = sim.pathfinder.get_random_navigable_point()
     sample2 = sim.pathfinder.get_random_navigable_point()
 
@@ -207,7 +207,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     # geodesic_distance = path.geodesic_distance
     path_points = path.points
 
-    # Returning if no path was found
+    # Returning no observations if no path was found
     if not found_path:
         return []
 
@@ -286,8 +286,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         inter_direcs.append(inter_direcs_aux)
 
 
-    if verbose:
-        visualize_navmesh(sim, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs)
+    visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs)
 
     return observations
 
@@ -303,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
     parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'simple', agent will take some unverified rotations and move forward. If 'target', agent will use the navmesh to try and navigate from point A to point B.", type=str, choices=['simple', 'target'], default='simple')
 
-    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.25m, for a reasonable default estimate of time, we use 0.25s per time-step.", type=float, default=0.25)
+    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.25m, for a reasonable default estimate of time, we use 0.5s per time-step.", type=float, default=0.5)
 
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
     
@@ -396,9 +395,9 @@ if __name__ == '__main__':
     audio_sensor.setAudioMaterialsJSON("data/mp3d_material_config.json")
 
     # Visualizing navmesh for sanity check
-    # if args.verbose:
-    #     height = sim.pathfinder.get_random_navigable_point()[1]
-    #     visualize_navmesh(sim, meters_per_pixel=0.01, height=height)
+    if args.verbose:
+        height = sim.pathfinder.get_random_navigable_point()[1]
+        visualize_navmesh(sim, meters_per_pixel=0.01, height=height)
 
     # Computing a single IR and spatializing the entire audio based on that response
     if args.simulation == 'static':
@@ -414,23 +413,42 @@ if __name__ == '__main__':
 
     # Simulation rollout for a certain list of actions
     elif args.simulation == 'rollout':
+        # Agent navigation for simple actions we choose beforehand
         if args.navigation == 'simple':
-            # 360 degrees rotation for now
-            observations = simple_navigation(sim, [2 for _ in range(36)] + [1 for _ in range(0)])
+            # 360 degrees rotation
+            observations = simple_navigation(sim, [2 for _ in range(72)])
+
+            # 180 degrees rotation
+            # observations = simple_navigation(sim, [2 for _ in range(36)])
+            
+            # 90 degrees rotation + forward movement
+            # observations = simple_navigation(sim, [2 for _ in range(18)] + [1 for _ in range(10)])
 
             # Saving each IR to a file
-            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'simulation/simple/'
+            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/'
             os.makedirs(navigation_path, exist_ok=True)
             ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(len(observations))]
             for i, observation in enumerate(observations):
                 wavfile.write(ir_paths[i], args.sample_rate, observation.T)
 
-            # Running the simulation on audio
-            output_path = navigation_path + 'output.wav'
-            convolve_audio_over_time(args.input_audio, observations, args.sample_rate, args.time_step, output_path, True, True)
-
+        # Agent navigation for random start and end points, with agent moving in the shortest path possible between them
         elif args.navigation == 'target':
-            target_navigation(sim, agent, audio_sensor, args.verbose)
+            # Tested seeds:
+            # 3, 776, 249 -> Easy seeds
+            # 487, 275, 779 -> Hard seeds
+            seed = random.randint(0, 1000)
+            seed = 3
+            print(seed)
+
+            # Creating seed folder, but not saving each IR
+            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/seed_{seed}/'
+            os.makedirs(navigation_path, exist_ok=True)
+
+            observations = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation")
+
+        # Running the simulation on audio and saving it
+        output_path = navigation_path + 'output.wav'
+        convolve_audio_over_time(args.input_audio, observations, args.sample_rate, args.time_step, output_path, True, True)
 
     # Sanity check for the mesh based on source visibility and ray efficiency
     if args.verbose:
