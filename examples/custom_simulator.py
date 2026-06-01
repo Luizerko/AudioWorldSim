@@ -70,9 +70,9 @@ def simple_navigation(sim: habitat_sim.Simulator, actions: list[int]):
 # Crossfading for mixing audio from adjacent time steps
 def crossfade(x1, x2, mixing_time, sample_rate):
     crossfade_samples = int(mixing_time * sample_rate)
-    x2_weight = np.arange(crossfade_samples + 1) / crossfade_samples
+    x2_weight = np.arange(crossfade_samples) / crossfade_samples
     x1_weight = np.flip(x2_weight)
-    x3 = [x1[:, :crossfade_samples+1] * x1_weight + x2[:, :crossfade_samples+1] * x2_weight, x2[:, crossfade_samples:]]
+    x3 = [x1[:, :crossfade_samples] * x1_weight + x2[:, :crossfade_samples] * x2_weight, x2[:, crossfade_samples:]]
 
     return np.concatenate(x3, axis=1)
 
@@ -124,6 +124,9 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
 
         # Crossfading spatial segments if asked for
         if crossfade_bool and last_observation is not None:
+            if len(spatial_audio) > 0:
+                spatial_left_right = crossfade(spatial_audio[-1].T, spatial_left_right.T, 0.02, sample_rate).T
+            
             spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='valid')
             spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='valid')
 
@@ -157,7 +160,7 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
 
     fig, ax = plt.subplots(figsize=(9, 9))
     ax.imshow(view_image, cmap="gray")
-    ax.title("Navigable Area (+ Agent Navigation)")
+    ax.set_title("Navigable Area (+ Agent Navigation)")
     ax.axis("off")
 
     # Helper function to capture current state of the plot for video
@@ -166,7 +169,7 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         elements = []
         for img in ax.images:
             elements.append(img)
-        for line in ax.linex:
+        for line in ax.lines:
             elements.append(line)
         for collection in ax.collections:
             elements.append(collection)
@@ -188,20 +191,25 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         else:
             plt.plot(px, py, marker="o", markersize=6, alpha=0.8, color='g')
 
+        if video:
+            capture_frame()
+
         # If available, we also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
             for v in inter_direcs[i]:
-                plt.quiver(px, py, v[0], -v[2], scale=20, units='width', width=0.005, alpha=0.6, color='g')
+                plt.quiver(px, py, v[0], -v[2], scale=25, units='width', width=0.002, alpha=0.6, color='g')
+                
+                if video:
+                    capture_frame()
 
         if len(inter_pos) > 0 and i < len(trajectory)-1:
             for p in inter_pos[i]:
                 px = (p[0] - bounds[0][0])/meters_per_pixel
                 py = (p[2] - bounds[0][2])/meters_per_pixel
-                plt.plot(px, py, marker="x", markersize=3, alpha=0.6, color='g')
+                plt.plot(px, py, marker="x", markersize=2, alpha=0.6, color='g')
 
-        # Saving every state of the plot if video is True
-        if video:
-            capture_frame()
+                if video:
+                    capture_frame()
 
     # Plotting or saving
     if filename is None:
@@ -212,12 +220,12 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         # Creating video
         if video:
             ani = animation.ArtistAnimation(fig, frames, interval=500, blit=True, repeat_delay=1000)
-            ani.save(filename, writer='ffmpeg', dpi=200)
+            ani.save(filename + '.mp4', writer='ffmpeg', dpi=200)
     plt.close()
 
 
 # Uses the navmesh to sample start and end points, then uses the the habitat sim shortest path to make an action plan for movement and finally moves the agent with simulation actions so it can get from start to finish. Audio sensor observations are captured throughout the whole process
-def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, seed: int = 3, filename: str = None):
+def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, seed: int = 3, filename: str = None, video: bool = False):
     # Getting a random (but valid) start and end
     sim.pathfinder.seed(seed)
     sample1 = sim.pathfinder.get_random_navigable_point()
@@ -310,7 +318,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         inter_direcs.append(inter_direcs_aux)
 
 
-    visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs)
+    visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs, video=video)
 
     return observations
 
@@ -329,6 +337,7 @@ if __name__ == '__main__':
     parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.1m, for a reasonable default estimate of time, we use 0.125s per time-step.", type=float, default=0.125)
 
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
+    parser.add_argument("--video", help="Create a video out of the Navmesh plots. Meant for better visualization.", action='store_true')
     parser.add_argument("--seed", help="Choose a specific seed for the target navigation scenario.", type=int)
     
     args = parser.parse_args()
@@ -472,7 +481,7 @@ if __name__ == '__main__':
             navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/seed_{seed}/'
             os.makedirs(navigation_path, exist_ok=True)
 
-            observations = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation")
+            observations = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation", args.video)
 
         # Running the simulation on audio and saving it
         output_path = navigation_path + 'output.wav'
