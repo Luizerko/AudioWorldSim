@@ -7,6 +7,7 @@ import quaternion
 import habitat_sim
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import numpy as np
 
 from typing import Union
@@ -71,7 +72,7 @@ def crossfade(x1, x2, mixing_time, sample_rate):
     crossfade_samples = int(mixing_time * sample_rate)
     x2_weight = np.arange(crossfade_samples + 1) / crossfade_samples
     x1_weight = np.flip(x2_weight)
-    x3 = [x1[:, :crossfade_samples+1] * x1_weight + x2[:, :crossfade_samples+1] * x2_weight, x2[:, crossfade_samples+1:]]
+    x3 = [x1[:, :crossfade_samples+1] * x1_weight + x2[:, :crossfade_samples+1] * x2_weight, x2[:, crossfade_samples:]]
 
     return np.concatenate(x3, axis=1)
 
@@ -149,15 +150,29 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
 
 
 # Plotting navmesh
-def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_per_pixel: float = 0.01, height: float = 0.0, trajectory=[], inter_pos=[], inter_direcs=[]):
+def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_per_pixel: float = 0.01, height: float = 0.0, trajectory=[], inter_pos=[], inter_direcs=[], video: bool = False):
     # Plotting topdown map
     topdown_map = sim.pathfinder.get_topdown_view(meters_per_pixel, height)
     view_image = np.uint8(topdown_map * 255)
 
-    plt.figure(figsize=(9, 9))
-    plt.imshow(view_image, cmap="gray")
-    plt.title("Navigable Area (+ Agent Navigation)")
-    plt.axis("off")
+    fig, ax = plt.subplots(figsize=(9, 9))
+    ax.imshow(view_image, cmap="gray")
+    ax.title("Navigable Area (+ Agent Navigation)")
+    ax.axis("off")
+
+    # Helper function to capture current state of the plot for video
+    frames = []
+    def capture_frame():
+        elements = []
+        for img in ax.images:
+            elements.append(img)
+        for line in ax.linex:
+            elements.append(line)
+        for collection in ax.collections:
+            elements.append(collection)
+        frames.append(elements)
+    if video:
+        capture_frame()
 
     # Plotting potential trajetory of the agent
     bounds = sim.pathfinder.get_bounds()
@@ -176,19 +191,28 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         # If available, we also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
             for v in inter_direcs[i]:
-                plt.quiver(px, py, v[0], -v[2], scale=15, alpha=0.6, color='g')
+                plt.quiver(px, py, v[0], -v[2], scale=20, units='width', width=0.005, alpha=0.6, color='g')
 
         if len(inter_pos) > 0 and i < len(trajectory)-1:
             for p in inter_pos[i]:
                 px = (p[0] - bounds[0][0])/meters_per_pixel
                 py = (p[2] - bounds[0][2])/meters_per_pixel
-                plt.plot(px, py, marker="x", markersize=6, alpha=0.6, color='g')
+                plt.plot(px, py, marker="x", markersize=3, alpha=0.6, color='g')
+
+        # Saving every state of the plot if video is True
+        if video:
+            capture_frame()
 
     # Plotting or saving
     if filename is None:
         plt.show()
     else:
         plt.savefig(filename, bbox_inches="tight", dpi=300)
+
+        # Creating video
+        if video:
+            ani = animation.ArtistAnimation(fig, frames, interval=500, blit=True, repeat_delay=1000)
+            ani.save(filename, writer='ffmpeg', dpi=200)
     plt.close()
 
 
@@ -242,7 +266,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         
             # Making agent turn until it's aligned enough with the next point
             angle_diff = (target_angle - heading_angle + math.pi) % (2*math.pi) - math.pi
-            if abs(angle_diff) > math.radians(2.2):
+            if abs(angle_diff) > math.radians(1.1):
                 if angle_diff > 0:
                     observations.append(np.array(sim.step("turn_right")['audio_sensor']))
                 else:
@@ -260,7 +284,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
             
             # Taking steps forward until agent reaches the (next) target point
             target_dist = np.linalg.norm(target_vector)
-            if target_dist > 0.11:
+            if target_dist > 0.06:
                 # Making sure the agent doesn't get stuck
                 if prev_dist <= target_dist:
                     agent_state = habitat_sim.AgentState()
@@ -302,9 +326,10 @@ if __name__ == '__main__':
     parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
     parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'simple', agent will take some unverified rotations and move forward. If 'target', agent will use the navmesh to try and navigate from point A to point B.", type=str, choices=['simple', 'target'], default='simple')
 
-    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.2m, for a reasonable default estimate of time, we use 0.25s per time-step.", type=float, default=0.25)
+    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.1m, for a reasonable default estimate of time, we use 0.125s per time-step.", type=float, default=0.125)
 
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
+    parser.add_argument("--seed", help="Choose a specific seed for the target navigation scenario.", type=int)
     
     args = parser.parse_args()
 
@@ -330,13 +355,13 @@ if __name__ == '__main__':
     # Configuring amount of movement per step
     agent_cfg.action_space = {
         "move_forward": habitat_sim.agent.ActionSpec(
-            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.2) 
+            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.1) 
         ),
         "turn_left": habitat_sim.agent.ActionSpec(
-            "turn_left", habitat_sim.agent.ActuationSpec(amount=4.0) 
+            "turn_left", habitat_sim.agent.ActuationSpec(amount=2.0)
         ),
         "turn_right": habitat_sim.agent.ActionSpec(
-            "turn_right", habitat_sim.agent.ActuationSpec(amount=4.0)
+            "turn_right", habitat_sim.agent.ActuationSpec(amount=2.0)
         ),
     }
 
@@ -434,11 +459,13 @@ if __name__ == '__main__':
         # Agent navigation for random start and end points, with agent moving in the shortest path possible between them
         elif args.navigation == 'target':
             # Tested seeds:
-            # 3, 776, 249 -> Easy seeds
+            # 3, 776, 249, 573 -> Easy seeds
             # 487, 275, 779 -> Medium seeds
-            # 420 -> Hard seeds
-            seed = random.randint(0, 1000)
-            # seed = 420
+            # 420, 378 -> Hard seeds
+            if args.seed is None:
+                seed = random.randint(0, 1000)
+            else:
+                seed = args.seed
             print(seed)
 
             # Creating seed folder, but not saving each IR
