@@ -28,8 +28,8 @@ def process_binaural_audio(file: str, sr: int = 44100, plot: bool = False):
         plt.show()
 
     # Computing Mel spectograms
-    n_samples = 4096
-    hop_len = 512
+    n_samples = 2048
+    hop_len = 294
     n_bands = 128
 
     mel_left = librosa.feature.melspectrogram(y=left, sr=sr, n_fft=n_samples, hop_length=hop_len, n_mels=n_bands)
