@@ -70,9 +70,9 @@ def simple_navigation(sim: habitat_sim.Simulator, actions: list[int]):
 # Crossfading for mixing audio from adjacent time steps
 def crossfade(x1, x2, mixing_time, sample_rate):
     crossfade_samples = int(mixing_time * sample_rate)
-    x2_weight = np.arange(crossfade_samples) / crossfade_samples
+    x2_weight = np.arange(crossfade_samples+1) / crossfade_samples
     x1_weight = np.flip(x2_weight)
-    x3 = [x1[:, :crossfade_samples] * x1_weight + x2[:, :crossfade_samples] * x2_weight, x2[:, crossfade_samples:]]
+    x3 = [x1[:, :crossfade_samples+1] * x1_weight + x2[:, :crossfade_samples+1] * x2_weight, x2[:, crossfade_samples+1:]]
 
     return np.concatenate(x3, axis=1)
 
@@ -91,7 +91,17 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
     last_observation = None
     current_index = 0
     warped = False
+
+    # Zero padding the tail of the IRs so that we don't have time-shift misalingment between audios later on, when we crossfade current IR and past IR (both with current audio segment)
+    max_ir_length = max([observation.shape[1] for observation in observations])
+    padded_observations = []
     for observation in observations:
+        pad_length = max_ir_length - observation.shape[1]
+        if pad_length > 0:
+            observation = np.pad(observation, ((0, 0), (0, pad_length)), mode='constant')
+        padded_observations.append(observation)
+    
+    for observation in padded_observations:
         observation = observation.T
 
         # Computing indices for amount of history needed, start of our audio covolution and end of audio convolution. Notice that we get a 'valid' convolution only when we have an audio segment of length observation.shape[0] + num_samples_per_step - 1
@@ -122,11 +132,8 @@ def convolve_audio_over_time(original: str, observations: list[np.array], sample
         spatial_right = fftconvolve(sound_segment, observation[:, 1], mode='valid')
         spatial_left_right = np.stack((spatial_left, spatial_right), 1)
 
-        # Crossfading spatial segments if asked for
+        # Crossfading spatial segments if asked for. We crossfade the current sound segment + current IR and current sound segment + past IR to simulate how the current sound would have sounded from the previous position
         if crossfade_bool and last_observation is not None:
-            if len(spatial_audio) > 0:
-                spatial_left_right = crossfade(spatial_audio[-1].T, spatial_left_right.T, 0.02, sample_rate).T
-            
             spatial_left_old = fftconvolve(sound_segment, last_observation[:, 0], mode='valid')
             spatial_right_old = fftconvolve(sound_segment, last_observation[:, 1], mode='valid')
 
@@ -197,7 +204,7 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         # If available, we also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
             for v in inter_direcs[i]:
-                plt.quiver(px, py, v[0], -v[2], scale=25, units='width', width=0.002, alpha=0.6, color='g')
+                plt.quiver(px, py, v[0], -v[2], scale=35, units='width', width=0.003, alpha=0.6, color='g')
                 
                 if video:
                     capture_frame()
