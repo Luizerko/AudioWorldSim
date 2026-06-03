@@ -181,10 +181,8 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         for collection in ax.collections:
             elements.append(collection)
         frames.append(elements)
-    if video:
-        capture_frame()
 
-    # Plotting potential trajetory of the agent
+    # Plotting goal trajectory of the agent
     bounds = sim.pathfinder.get_bounds()
     for i, point in enumerate(trajectory):
         px = (point[0] - bounds[0][0])/meters_per_pixel
@@ -198,10 +196,13 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
         else:
             plt.plot(px, py, marker="o", markersize=6, alpha=0.8, color='g')
 
-        if video:
-            capture_frame()
+    # Plotting step by step trajetory of the agent
+    bounds = sim.pathfinder.get_bounds()
+    for i, point in enumerate(trajectory):
+        px = (point[0] - bounds[0][0])/meters_per_pixel
+        py = (point[2] - bounds[0][2])/meters_per_pixel
 
-        # If available, we also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
+        # We also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
             for v in inter_direcs[i]:
                 plt.quiver(px, py, v[0], -v[2], scale=35, units='width', width=0.003, alpha=0.6, color='g')
@@ -226,8 +227,8 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
 
         # Creating video
         if video:
-            ani = animation.ArtistAnimation(fig, frames, interval=500, blit=True, repeat_delay=1000)
-            ani.save(filename + '.mp4', writer='ffmpeg', dpi=200)
+            ani = animation.ArtistAnimation(fig, frames, interval=200, blit=True, repeat_delay=1000)
+            ani.save(filename + '.mp4', writer='ffmpeg', dpi=300)
     plt.close()
 
 
