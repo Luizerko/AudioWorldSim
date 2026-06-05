@@ -244,7 +244,6 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     path.requested_start = sample1
     path.requested_end = sample2
     found_path = sim.pathfinder.find_path(path)
-    # geodesic_distance = path.geodesic_distance
     path_points = path.points
 
     # Returning no observations if no path was found
@@ -263,18 +262,23 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     agent.set_state(agent_state)
 
     # Making agent go through trajectory while saving audio observations and overall steps for plotting later on
-    observations = []
+    observations = [np.array(sim.get_sensor_observations()["audio_sensor"])]
     inter_pos = []
     inter_direcs = []
     for point in path_points[1:]:
-        inter_pos_aux = []
         inter_direcs_aux = [habitat_sim.utils.common.quat_rotate_vector(agent.get_state().rotation, np.array([0.0, 0.0, -1.0]))]
+        first = True
         while True:
             # Computing current forward of the agent
             current_state = agent.get_state()
             heading_vector = habitat_sim.utils.common.quat_rotate_vector(current_state.rotation, np.array([0.0, 0.0, -1.0]))
             heading_angle = math.atan2(heading_vector[0], -heading_vector[2])
             
+            if first:
+                first = False
+            else:
+                inter_direcs_aux.append(heading_vector)
+
             # Computing the vector that points from current poistion to next position
             dx = point[0] - current_state.position[0]
             dz = point[2] - current_state.position[2]
@@ -288,16 +292,21 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                 else:
                     observations.append(np.array(sim.step("turn_left")['audio_sensor']))
             else:
-                inter_direcs_aux.append(heading_vector)
                 break
 
         prev_dist = np.inf
+        inter_pos_aux = [agent.get_state().position]
+        first = True
         while True:
             # Computing target vector
             current_state = agent.get_state()
-            inter_pos_aux.append(current_state.position)
             target_vector = np.array([point[0] - current_state.position[0], point[2] - current_state.position[2]])
             
+            if first:
+                first = False
+            else:
+                inter_pos_aux.append(current_state.position)
+
             # Taking steps forward until agent reaches the (next) target point
             target_dist = np.linalg.norm(target_vector)
             if target_dist > 0.085:
@@ -309,6 +318,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                     agent.set_state(agent_state)
 
                     observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                    inter_pos_aux.append(agent.get_state().position)
                     break
 
                 prev_dist = target_dist
@@ -320,6 +330,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                 agent.set_state(agent_state)
                 
                 observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                inter_pos_aux.append(agent.get_state().position)
                 break
 
         inter_pos.append(inter_pos_aux)
@@ -483,7 +494,6 @@ if __name__ == '__main__':
                 seed = random.randint(0, 1000)
             else:
                 seed = args.seed
-            print(seed)
 
             # Creating seed folder, but not saving each IR
             navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/seed_{seed}/'
