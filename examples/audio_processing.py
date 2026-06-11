@@ -14,15 +14,13 @@ def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 294, p
 
     # (Potentially) Plotting sound waves
     if plot:
-        plt.figure(figsize=(9, 9))
-       
-        plt.subplot(2, 1, 1)
-        plt.title("Left ear waveform")
-        librosa.display.waveshow(left, sr=sr, color='blue')
+        fig, axes = plt.subplots(2, 1, figsize=(9, 9), sharey=True)
 
-        plt.subplot(2, 1, 2)
-        plt.title("Right ear waveform")
-        librosa.display.waveshow(right, sr=sr, color='orange')
+        axes[0].set_title("Left ear waveform")
+        librosa.display.waveshow(left, sr=sr, color='blue', ax=axes[0])
+
+        axes[1].set_title("Right ear waveform")
+        librosa.display.waveshow(right, sr=sr, color='orange', ax=axes[1])
 
         plt.tight_layout()
         plt.show()
@@ -69,15 +67,13 @@ def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 294, 
 
     # (Potentially) Plotting sound waves
     if plot:
-        plt.figure(figsize=(9, 9))
-       
-        plt.subplot(2, 1, 1)
-        plt.title("Left ear waveform")
-        librosa.display.waveshow(left, sr=sr, color='blue')
+        fig, axes = plt.subplots(2, 1, figsize=(9, 9), sharey=True)
 
-        plt.subplot(2, 1, 2)
-        plt.title("Right ear waveform")
-        librosa.display.waveshow(right, sr=sr, color='orange')
+        axes[0].set_title("Left ear waveform")
+        librosa.display.waveshow(left, sr=sr, color='blue', ax=axes[0])
+
+        axes[1].set_title("Right ear waveform")
+        librosa.display.waveshow(right, sr=sr, color='orange', ax=axes[1])
 
         plt.tight_layout()
         plt.show()
@@ -150,7 +146,7 @@ def split_data(data_list: list, sr: int = 44100, hop_len: int = 294, time_step: 
     # Computing image resolution and number of images
     samples_per_action = sr * time_step
     frames_per_action = int(samples_per_action/hop_len)
-    n_images = int(len(data_list[0])/frames_per_action)
+    n_images = int(data_list[0].shape[1]/frames_per_action)
 
     # Iterating data and saving images for dataset
     images = []
@@ -169,38 +165,36 @@ def split_data(data_list: list, sr: int = 44100, hop_len: int = 294, time_step: 
             fig, axes = plt.subplots(4, 2, figsize=(9, 9))
 
         for i, image in enumerate([images[0], images[1]]):
+            # Generating correct time coordiantes for current slice
             start_time = i * time_step
-            end_time = (i+1) * time_step
-            time_limits = (start_time, end_time)
+            times = librosa.times_like(image[:, :, 0], sr=sr, hop_length=hop_len) + start_time
             
             if method == 'mel':
                 axes[i, 0].set_title('Left ear Mel spectrogram')
-                axes[i, 0].set_xlim(time_limits)
-                img_0 = librosa.display.specshow(image[:, :, 0], sr=sr, hop_length=hop_len, x_axis='time', y_axis='mel', ax=axes[i, 0])
+                img_0 = librosa.display.specshow(image[:, :, 0], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='mel', ax=axes[i, 0])
                 fig.colorbar(img_0, ax=axes[i, 0], format='%+2.0f dB')
 
                 axes[i, 1].set_title('Right ear Mel spectrogram')
-                axes[i, 1].set_xlim(time_limits)
-                img_1 = librosa.display.specshow(image[:, :, 1], sr=sr, hop_length=hop_len, x_axis='time', y_axis='mel', ax=axes[i, 1])
+                img_1 = librosa.display.specshow(image[:, :, 1], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='mel', ax=axes[i, 1])
                 fig.colorbar(img_1, ax=axes[i, 1], format='%+2.0f dB')
 
             elif method == 'stft':
                 # Magnitude plots
                 axes[2*i, 0].set_title('Left ear magnitude')
-                img_0 = librosa.display.specshow(image[:, :, 0], sr=sr, hop_length=hop_len, x_axis='time', y_axis='log', ax=axes[2*i, 0])
+                img_0 = librosa.display.specshow(image[:, :, 0], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='log', ax=axes[2*i, 0])
                 fig.colorbar(img_0, ax=axes[2*i, 0], format='%+2.0f dB')
 
                 axes[2*i, 1].set_title('Right ear magnitude')
-                img_1 = librosa.display.specshow(image[:, :, 2], sr=sr, hop_length=hop_len, x_axis='time', y_axis='log', ax=axes[2*i, 1])
+                img_1 = librosa.display.specshow(image[:, :, 2], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='log', ax=axes[2*i, 1])
                 fig.colorbar(img_1, ax=axes[2*i, 1], format='%+2.0f dB')
 
                 # Raw phase plots
                 axes[2*i+1, 0].set_title('Left ear raw phase')
-                img_2 = librosa.display.specshow(image[:, :, 1], sr=sr, hop_length=hop_len, x_axis='time', y_axis='linear', ax=axes[2*i+1, 0])
+                img_2 = librosa.display.specshow(image[:, :, 1], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='linear', ax=axes[2*i+1, 0])
                 fig.colorbar(img_2, ax=axes[2*i+1, 0], label='Radians')
 
                 axes[2*i+1, 1].set_title('Right ear raw phase')
-                img_3 = librosa.display.specshow(image[:, :, 3], sr=sr, hop_length=hop_len, x_axis='time', y_axis='linear', ax=axes[2*i+1, 1])
+                img_3 = librosa.display.specshow(image[:, :, 3], sr=sr, hop_length=hop_len, x_coords=times, x_axis='time', y_axis='linear', ax=axes[2*i+1, 1])
                 fig.colorbar(img_3, ax=axes[2*i+1, 1], label='Radians')
 
         plt.tight_layout()

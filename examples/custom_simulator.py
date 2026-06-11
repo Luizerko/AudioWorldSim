@@ -5,6 +5,7 @@ import os
 
 import quaternion
 import habitat_sim
+import librosa
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -14,13 +15,14 @@ from typing import Union
 
 from scipy.io import wavfile
 from scipy.signal import fftconvolve
-from scipy.signal import resample
 
 
 # Get an audio and two sample rates, then resample the first audio based on the second sample rate
 def resample_audio(audio1, sample_rate1, sample_rate2):
     if sample_rate1 != sample_rate2:
-        audio1 = resample(audio1, int((audio1.shape[0]/sample_rate1)*sample_rate2))
+        audio1 = audio1.astype(np.float32)
+        audio1 = librosa.resample(audio1, orig_sr=sample_rate1, target_sr=sample_rate2)
+        audio1 = audio1.astype(np.int16)
     return audio1
 
 
@@ -286,7 +288,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         
             # Making agent turn until it's aligned enough with the next point
             angle_diff = (target_angle - heading_angle + math.pi) % (2*math.pi) - math.pi
-            if abs(angle_diff) > math.radians(1.6):
+            if abs(angle_diff) > math.radians(3.1):
                 if angle_diff > 0:
                     observations.append(np.array(sim.step("turn_right")['audio_sensor']))
                 else:
@@ -309,7 +311,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
 
             # Taking steps forward until agent reaches the (next) target point
             target_dist = np.linalg.norm(target_vector)
-            if target_dist > 0.085:
+            if target_dist > 0.11:
                 # Making sure the agent doesn't get stuck
                 if prev_dist <= target_dist:
                     agent_state = habitat_sim.AgentState()
@@ -353,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
     parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'simple', agent will take some unverified rotations and move forward. If 'target', agent will use the navmesh to try and navigate from point A to point B.", type=str, choices=['simple', 'target'], default='simple')
 
-    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.15m, for a reasonable default estimate of time, we use 0.2s per time-step.", type=float, default=0.2)
+    parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.2m, for a reasonable default estimate of time, we use 0.2s per time-step.", type=float, default=0.2)
 
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
     parser.add_argument("--video", help="Create a video out of the Navmesh plots. Meant for better visualization.", action='store_true')
@@ -383,13 +385,13 @@ if __name__ == '__main__':
     # Configuring amount of movement per step
     agent_cfg.action_space = {
         "move_forward": habitat_sim.agent.ActionSpec(
-            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.15) 
+            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.2) 
         ),
         "turn_left": habitat_sim.agent.ActionSpec(
-            "turn_left", habitat_sim.agent.ActuationSpec(amount=3.0)
+            "turn_left", habitat_sim.agent.ActuationSpec(amount=6.0)
         ),
         "turn_right": habitat_sim.agent.ActionSpec(
-            "turn_right", habitat_sim.agent.ActuationSpec(amount=3.0)
+            "turn_right", habitat_sim.agent.ActuationSpec(amount=6.0)
         ),
     }
 
