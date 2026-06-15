@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import librosa
 import librosa.display
@@ -37,6 +38,9 @@ def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 294, p
     max_power = np.max([mel_left, mel_right])
     mel_left = librosa.power_to_db(mel_left, ref=max_power)
     mel_right = librosa.power_to_db(mel_right, ref=max_power)
+
+    # Saving full mel spectrograms
+    np.savez_compressed(file.replace('output.wav', 'full_mel.npz'), left=mel_left, right=mel_right)
 
     # (Potentially) Plotting Mel spectrograms
     if plot:
@@ -83,6 +87,9 @@ def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 294, 
     n_samples = 2048
     stft_left = librosa.stft(left, n_fft=n_samples, hop_length=hop_len)
     stft_right = librosa.stft(right, n_fft=n_samples, hop_length=hop_len)
+
+    # Saving full spetrogram
+    np.savez_compressed(file.replace('output.wav', 'full_stft'), left=stft_left, right=stft_right)
 
     # Extracting magnitude and phase components, as well as computing sine and cosine for smooth phase visualization
     mag_left, phase_left = np.abs(stft_left), np.angle(stft_left)
@@ -139,24 +146,49 @@ def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 294, 
         plt.show()
         plt.close()
 
-    return mag_left, mag_right, phase_left, phase_right, cos_left, cos_right, sin_left, sin_right
+    return stft_left, stft_right, mag_left, mag_right, phase_left, phase_right, cos_left, cos_right, sin_left, sin_right
 
 # Given the processed audio data, we split it so we can later input it to our machine learning model
-def split_data(data_list: list, sr: int = 44100, hop_len: int = 294, time_step: float = 0.2, plot: bool = False, method: str = 'mel'):
+def split_data(data_list: list, file: str, sr: int = 44100, hop_len: int = 294, time_step: float = 0.2, plot: bool = False, method: str = 'mel'):
     # Computing image resolution and number of images
     samples_per_action = sr * time_step
     frames_per_action = int(samples_per_action/hop_len)
     n_images = int(data_list[0].shape[1]/frames_per_action)
 
     # Iterating data and saving images for dataset
-    images = []
-    for i in range(n_images):
-        image = []
-        for data in data_list:
-            image.append(data[:, i*frames_per_action:(i+1)*frames_per_action])
+    if method == 'mel':
+        images = []
+        for i in range(n_images):
+            image = []
+            for data in data_list:
+                image.append(data[:, i*frames_per_action:(i+1)*frames_per_action])
 
-        images.append(np.stack(image, axis=-1))
+            images.append(np.stack(image, axis=-1))
+        images = np.array(images)
 
+    elif method == 'stft':
+        images = []
+        complex_images = []
+        for i in range(n_images):
+            image = []
+            complex_image = []
+            for data in data_list[2:]:
+                image.append(data[:, i*frames_per_action:(i+1)*frames_per_action])
+            for data in data_list[:2]:
+                complex_image.append(data[:, i*frames_per_action:(i+1)*frames_per_action])
+
+            images.append(np.stack(image, axis=-1))
+            complex_images.append(np.stack(complex_image, axis=-1))
+        
+        images = np.array(images)
+        complex_images = np.array(complex_images)
+
+    # Saving split spectrograms
+    if method == 'mel':
+        np.savez_compressed(file, left=images[:, :, :, 0], right=images[:, :, :, 1])
+    elif method == 'stft':
+        np.savez_compressed(file, left=complex_images[:, :, :, 0], right=complex_images[:, :, :, 1])
+    
     # (Potentialy) Plot the first and second images
     if plot:
         if method == 'mel':
@@ -223,9 +255,9 @@ if __name__ == "__main__":
     if args.method == 'mel':
         mel_left, mel_right = process_binaural_audio_mel(args.file, args.sample_rate, args.hop_len, args.verbose)
 
-        images = split_data([mel_left, mel_right], args.sample_rate, args.hop_len, args.time_step, args.verbose, args.method)
-    
+        images = split_data([mel_left, mel_right], args.file.replace('output.wav', 'split_mel.npz'), args.sample_rate, args.hop_len, args.time_step, args.verbose, args.method)
+
     elif args.method == 'stft':
-        mag_left, mag_right, phase_left, phase_right, cos_left, cos_right, sin_left, sin_right = process_binaural_audio_stft(args.file, args.sample_rate, args.hop_len, args.verbose)
+        stft_left, stft_right, mag_left, mag_right, phase_left, phase_right, cos_left, cos_right, sin_left, sin_right = process_binaural_audio_stft(args.file, args.sample_rate, args.hop_len, args.verbose)
         
-        images = split_data([mag_left, phase_left, mag_right, phase_right], args.sample_rate, args.hop_len, args.time_step, args.verbose, args.method)
+        images = split_data([stft_left, stft_right, mag_left, phase_left, mag_right, phase_right], args.file.replace('output.wav', 'split_stft.npz'), args.sample_rate, args.hop_len, args.time_step, args.verbose, args.method)

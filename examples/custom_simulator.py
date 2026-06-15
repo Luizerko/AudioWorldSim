@@ -321,6 +321,11 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
 
                     observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
                     inter_pos_aux.append(agent.get_state().position)
+                    
+                    # Logging stuck-problems for dataset statistics
+                    with open('log_stuck', 'w+') as f:
+                        f.write('')
+
                     break
 
                 prev_dist = target_dist
