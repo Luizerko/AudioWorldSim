@@ -206,11 +206,15 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
 
         # We also plot the intermediate points that our agent passes through and intermediate directions that our agent looks towards
         if len(inter_direcs) > 0 and i < len(trajectory)-1:
-            for v in inter_direcs[i]:
-                plt.quiver(px, py, v[0], -v[2], scale=35, units='width', width=0.003, alpha=0.6, color='g')
-                
-                if video:
-                    capture_frame()
+            # Stopping plot early for broken trajectories 
+            try:
+                for v in inter_direcs[i]:
+                    plt.quiver(px, py, v[0], -v[2], scale=35, units='width', width=0.003, alpha=0.6, color='g')
+                    
+                    if video:
+                        capture_frame()
+            except:
+                break
 
         if len(inter_pos) > 0 and i < len(trajectory)-1:
             for p in inter_pos[i]:
@@ -267,7 +271,11 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     observations = [np.array(sim.get_sensor_observations()["audio_sensor"])]
     inter_pos = []
     inter_direcs = []
-    for point in path_points[1:]:
+    point_counter = 1
+    stuck_flag = False
+    while point_counter < len(path_points):
+        point = path_points[point_counter]
+
         inter_direcs_aux = [habitat_sim.utils.common.quat_rotate_vector(agent.get_state().rotation, np.array([0.0, 0.0, -1.0]))]
         first = True
         while True:
@@ -312,37 +320,72 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
             # Taking steps forward until agent reaches the (next) target point
             target_dist = np.linalg.norm(target_vector)
             if target_dist > 0.11:
-                # Making sure the agent doesn't get stuck
-                if prev_dist <= target_dist:
+                # If the agent gets stuck, we go backtrack to previous non-stuck point, create a pseudo-target point and continue navigation through the next iteration
+                if np.isclose(prev_dist, target_dist, atol=0.05):
+                    # observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                    # inter_pos_aux.append(agent.get_state().position)
+                    
+                    # Positioning agent correctly before getting stuck
+                    try:
+                        # Agent got stuck at the same place again
+                        if stuck_flag:
+                            raise Exception('Stuck')
+                        
+                        agent_state = habitat_sim.AgentState()
+                        agent_state.position = inter_pos_aux[-3]
+                        agent_state.rotation = current_state.rotation
+                        agent.set_state(agent_state)
+
+                        # Removing information for backtracking
+                        del observations[-1]
+                        del inter_pos_aux[-2:]
+
+                        path_points = path_points[:point_counter] + [inter_pos_aux[-3]] + path_points[point_counter:]
+
+                        stuck_flag = True
+
+                    # If the agent got stuck on the very first step after a target point, then it will probably be stuck again, so we log it and terminate navigation
+                    except Exception as e:
+                        with open(filename.replace('output.wav', 'log_stuck'), 'w+') as f:
+                            f.write(' ')
+                        point_counter = len(path_points)
+                    
+                    break
+
+                # Correcting trajectory if agent passes the next target point. We don't save the agent's current position information and we keep the same target point for next iteration, but we do make our current position a pseudo-target point just reached the agent
+                if prev_dist < target_dist:
                     agent_state = habitat_sim.AgentState()
-                    agent_state.position = point
+                    agent_state.position = inter_pos_aux[-2]
                     agent_state.rotation = current_state.rotation
                     agent.set_state(agent_state)
 
-                    observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
-                    inter_pos_aux.append(agent.get_state().position)
+                    path_points = path_points[:point_counter] + [inter_pos_aux[-2]] + path_points[point_counter:]
                     
-                    # Logging stuck-problems for dataset statistics
-                    with open('log_stuck', 'w+') as f:
-                        f.write('')
-
+                    del inter_pos_aux[-1]
+                    
+                    stuck_flag = False
                     break
 
                 prev_dist = target_dist
                 observations.append(np.array(sim.step("move_forward")['audio_sensor']))
+            
             else:
-                agent_state = habitat_sim.AgentState()
-                agent_state.position = point
-                agent_state.rotation = current_state.rotation
-                agent.set_state(agent_state)
-                
-                observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
-                inter_pos_aux.append(agent.get_state().position)
+                if point_counter != len(path_points)-1:
+                    agent_state = habitat_sim.AgentState()
+                    agent_state.position = point
+                    agent_state.rotation = current_state.rotation
+                    agent.set_state(agent_state)
+                    
+                    observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                    inter_pos_aux.append(agent.get_state().position)
+
+                    stuck_flag = False
                 break
+
+        point_counter += 1
 
         inter_pos.append(inter_pos_aux)
         inter_direcs.append(inter_direcs_aux)
-
 
     visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs, video=video)
 
