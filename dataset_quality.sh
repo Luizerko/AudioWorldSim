@@ -1,0 +1,32 @@
+#!/bin/bash
+
+BASE_DIR="/mnt/c/Users/luisvz/Documents/visgraf/soundspaces/data/mp3d_example/sounds/alarm/simulation/target"
+OUTPUT_FILE="problematic_seeds.txt"
+
+total_seeds=0
+empty_seeds=0
+stuck_seeds=0
+> "$OUTPUT_FILE"
+
+# Looping all simulations
+for dir in "$BASE_DIR"/seed_*/; do
+    seed_name=$(basename "$dir")
+    
+    # Getting total simulations
+    total_seeds=$((total_seeds + 1))
+
+    # Counting broken simulations
+    if [ -z "$(ls -A "$dir")" ]; then
+        empty_seeds=$((empty_seeds + 1))
+        echo "$seed_name - empty" >> "$OUTPUT_FILE"
+
+    # Counting stuck simulations
+    elif [ -f "${dir}log_stuck" ]; then
+        stuck_seeds=$((stuck_seeds + 1))
+        echo "$seed_name - stuck" >> "$OUTPUT_FILE"
+    fi
+done
+
+echo "Total Navigations:      $total_seeds"
+echo "Broken Navigations:     $empty_seeds"
+echo "Stuck Navigations:      $stuck_seeds"
