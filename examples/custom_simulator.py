@@ -321,7 +321,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
             target_dist = np.linalg.norm(target_vector)
             if target_dist > 0.11:
                 # If the agent gets stuck, we go backtrack to previous non-stuck point, create a pseudo-target point and continue navigation through the next iteration
-                if np.isclose(prev_dist, target_dist, atol=0.05):
+                if np.isclose(prev_dist, target_dist, atol=0.005):
                     # observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
                     # inter_pos_aux.append(agent.get_state().position)
                     
@@ -336,24 +336,24 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                         agent_state.rotation = current_state.rotation
                         agent.set_state(agent_state)
 
+                        path_points = path_points[:point_counter] + [inter_pos_aux[-3]] + path_points[point_counter:]
+
                         # Removing information for backtracking
                         del observations[-1]
                         del inter_pos_aux[-2:]
 
-                        path_points = path_points[:point_counter] + [inter_pos_aux[-3]] + path_points[point_counter:]
-
                         stuck_flag = True
 
-                    # If the agent got stuck on the very first step after a target point, then it will probably be stuck again, so we log it and terminate navigation
+                    # If the agent got stuck after already getting stuck once, then it will probably be stuck again, so we log it and terminate navigation
                     except Exception as e:
-                        with open(filename.replace('output.wav', 'log_stuck'), 'w+') as f:
+                        with open(filename.replace('navigation', 'log_stuck'), 'w+') as f:
                             f.write(' ')
                         point_counter = len(path_points)
                     
                     break
 
                 # Correcting trajectory if agent passes the next target point. We don't save the agent's current position information and we keep the same target point for next iteration, but we do make our current position a pseudo-target point just reached the agent
-                if prev_dist < target_dist:
+                if prev_dist < target_dist:                    
                     agent_state = habitat_sim.AgentState()
                     agent_state.position = inter_pos_aux[-2]
                     agent_state.rotation = current_state.rotation
@@ -379,7 +379,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
                     observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
                     inter_pos_aux.append(agent.get_state().position)
 
-                    stuck_flag = False
+                stuck_flag = False
                 break
 
         point_counter += 1
