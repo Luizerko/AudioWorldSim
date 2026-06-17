@@ -271,6 +271,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
     observations = [np.array(sim.get_sensor_observations()["audio_sensor"])]
     inter_pos = []
     inter_direcs = []
+    actions = []
     point_counter = 1
     stuck_flag = False
     while point_counter < len(path_points):
@@ -299,8 +300,10 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
             if abs(angle_diff) > math.radians(3.1):
                 if angle_diff > 0:
                     observations.append(np.array(sim.step("turn_right")['audio_sensor']))
+                    actions.append('2')
                 else:
                     observations.append(np.array(sim.step("turn_left")['audio_sensor']))
+                    actions.append('3')
             else:
                 break
 
@@ -368,16 +371,17 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
 
                 prev_dist = target_dist
                 observations.append(np.array(sim.step("move_forward")['audio_sensor']))
+                actions.append('1')
             
             else:
-                if point_counter != len(path_points)-1:
-                    agent_state = habitat_sim.AgentState()
-                    agent_state.position = point
-                    agent_state.rotation = current_state.rotation
-                    agent.set_state(agent_state)
+                # if point_counter != len(path_points)-1:
+                #     agent_state = habitat_sim.AgentState()
+                #     agent_state.position = point
+                #     agent_state.rotation = current_state.rotation
+                #     agent.set_state(agent_state)
                     
-                    observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
-                    inter_pos_aux.append(agent.get_state().position)
+                #     observations.append(np.array(sim.get_sensor_observations()["audio_sensor"]))
+                #     inter_pos_aux.append(agent.get_state().position)
 
                 stuck_flag = False
                 break
@@ -389,7 +393,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
 
     visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs, video=video)
 
-    return observations
+    return observations, actions
 
 
 if __name__ == '__main__':
@@ -549,7 +553,12 @@ if __name__ == '__main__':
             navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/seed_{seed}/'
             os.makedirs(navigation_path, exist_ok=True)
 
-            observations = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation", args.video)
+            observations, actions = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation", args.video)
+
+            # writing down the list of actions we took during navigation
+            with open(navigation_path + 'action_list.txt', 'w+') as f:
+                for a in actions:
+                    f.write(a + ',')
 
         # Running the simulation on audio and saving it
         output_path = navigation_path + 'output.wav'
