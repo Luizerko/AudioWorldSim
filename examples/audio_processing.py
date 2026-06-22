@@ -27,7 +27,7 @@ def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 294, p
         plt.show()
         plt.close()
 
-    # Computing Mel spectrograms
+    # Computing Mel spectrograms. We leave n_samples at 2048 here because we don't have ITD to work with, so we sitck to better frequency resolution 
     n_samples = 2048
     n_bands = 128
 
@@ -64,7 +64,7 @@ def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 294, p
 
 
 # Processing binaural audio with raw STFT and (potentially) plotting sound waves and spectograms for sanity check. The idea of using this method instead of the mel spectrogram is to capture phase so we don't lose ITD
-def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 294, plot: bool = False):
+def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 147, plot: bool = False):
     # Reading audio file
     audio, _ = librosa.load(file, sr=sr, mono=False)
     left, right = audio[0], audio[1]
@@ -83,8 +83,8 @@ def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 294, 
         plt.show()
         plt.close()
 
-    # Computing raw complex spectrogram
-    n_samples = 2048
+    # Computing raw complex spectrogram. We use a lower n_samples than Mel (1024 instead of 2048) becuase we do preserve phase information with raw STFT, so we need better time resolution to make good use of ITD
+    n_samples = 1024
     stft_left = librosa.stft(left, n_fft=n_samples, hop_length=hop_len)
     stft_right = librosa.stft(right, n_fft=n_samples, hop_length=hop_len)
 
