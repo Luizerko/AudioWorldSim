@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Processing binaural audio with mel spectrograms and (potentially) plotting sound waves and spectograms for sanity check
-def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 294, plot: bool = False):
+def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 147, plot: bool = False):
     # Reading audio file
     audio, _ = librosa.load(file, sr=sr, mono=False)
     left, right = audio[0], audio[1]
