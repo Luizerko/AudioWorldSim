@@ -240,10 +240,12 @@ def visualize_navmesh(sim: habitat_sim.Simulator, filename: str = None, meters_p
 
 # Uses the navmesh to sample start and end points, then uses the the habitat sim shortest path to make an action plan for movement and finally moves the agent with simulation actions so it can get from start to finish. Audio sensor observations are captured throughout the whole process
 def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sensor: habitat_sim.AudioSensor, seed: int = 3, filename: str = None, video: bool = False):
-    # Getting a random (but valid) start and end
+    # Getting a random (but valid) start and end. For the end, we have to make sure we are on the same floor, otherwise the path finder won't find a path
     sim.pathfinder.seed(seed)
     sample1 = sim.pathfinder.get_random_navigable_point()
     sample2 = sim.pathfinder.get_random_navigable_point()
+    while sample2[1] != sample1[1]:
+        sample2 = sim.pathfinder.get_random_navigable_point()
 
     # Computing shortest path (if any) from start to end
     path = habitat_sim.ShortestPath()
@@ -391,7 +393,7 @@ def target_navigation(sim: habitat_sim.Simulator, agent: habitat_sim.Agent, sens
         inter_pos.append(inter_pos_aux)
         inter_direcs.append(inter_direcs_aux)
 
-    visualize_navmesh(sim, filename, trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs, video=video)
+    visualize_navmesh(sim, filename, height=sample1[1], trajectory=path_points, inter_pos=inter_pos, inter_direcs=inter_direcs, video=video)
 
     return observations, actions
 
@@ -510,7 +512,7 @@ if __name__ == '__main__':
     if args.simulation == 'static':
         obs = np.array(sim.get_sensor_observations()["audio_sensor"])
         
-        static_path = args.input_audio[:args.input_audio.rfind("/")+1] + 'static/'
+        static_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'{instance}/static/'
         os.makedirs(static_path, exist_ok=True)
         ir_path = static_path + 'IR.wav'
         wavfile.write(ir_path, args.sample_rate, obs.T)
@@ -532,7 +534,7 @@ if __name__ == '__main__':
             # observations = simple_navigation(sim, [2 for _ in range(18)] + [1 for _ in range(10)])
 
             # Saving each IR to a file
-            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/'
+            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'{instance}/simulation/{args.navigation}/'
             os.makedirs(navigation_path, exist_ok=True)
             ir_paths = [navigation_path + f'IR_{i+1}.wav' for i in range(len(observations))]
             for i, observation in enumerate(observations):
@@ -550,7 +552,7 @@ if __name__ == '__main__':
                 seed = args.seed
 
             # Creating seed folder, but not saving each IR
-            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'simulation/{args.navigation}/seed_{seed}/'
+            navigation_path = args.input_audio[:args.input_audio.rfind("/")+1] + f'{instance}/simulation/{args.navigation}/seed_{seed}/'
             os.makedirs(navigation_path, exist_ok=True)
 
             observations, actions = target_navigation(sim, agent, audio_sensor, seed, navigation_path+"navigation", args.video)
