@@ -1,5 +1,27 @@
-![Agent navigation path and spectrograms](path/to/header_image.png)
-*Figure 1: Agent navigation path alongside the corresponding left and right ear Mel spectrograms, illustrating the spatial audio output.*
+<div align="center">
+  <table style="border: none; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="border: none; padding-bottom: 0;">
+        <img src="assets/intro_navigation.png" alt="Navigation Path" width="398" />
+      </td>
+      <td align="center" style="border: none; padding-bottom: 0;">
+        <img src="assets/intro_spectrograms.png" alt="Left and Right Ear Spectrograms" width="350" />
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="border: none; padding-bottom: 0;">
+        <video src="assets/intro_dry.wav" controls></video><br>
+        <b>Original Dry Sound</b>
+      </td>
+      <td align="center" style="border: none; padding-bottom: 0;">
+        <video src="assets/intro_spatial.wav" controls></video><br>
+        <b>Spatialized Sound</b>
+      </td>
+    </tr>
+  </table>
+</div>
+
+*Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the distinct interaural volume differences when the agent rounds a corner—a spatial acoustic effect clearly reflected in the spectrograms.*
 
 # Welcome to AudioWorldSim
 
