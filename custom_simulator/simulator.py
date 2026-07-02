@@ -406,8 +406,8 @@ if __name__ == '__main__':
     parser.add_argument("--input_audio", help="Path to input audio.", type=str, required=True)
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
 
-    parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, 'rollout' for a specified list of actions with their respective observations, and 'interactive' to play around in the audio-based simulation.", type=str, choices=['static', 'rollout', 'interactive'], default='static')
-    parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'simple', agent will take some unverified rotations and move forward. If 'target', agent will use the navmesh to try and navigate from point A to point B.", type=str, choices=['simple', 'target'], default='simple')
+    parser.add_argument("--simulation", help="Choose simulation mode. 'static' for single IR computation, and 'rollout' for a specified list of actions with their respective observations.", type=str, choices=['static', 'rollout'], default='rollout')
+    parser.add_argument("--navigation", help="Choose navigation mode (for rollout simulation only). If rollout simulation was chosen, choose how your agent will navigate the simulation. If 'manual', you have to adjust the code to position the agent on space, give it an orientation and move it with your desired list of actions. If 'target', agent will use the navmesh to try and navigate from a sampled point A to a sampled point B.", type=str, choices=['manual', 'target'], default='target')
 
     parser.add_argument("--time_step", help="The amount of time for a step in the kinematic (not dynamic) simulation. Since we don't have physics enabled, the agent teleports. Considering a forward action moves the agent 0.2m, for a reasonable default estimate of time, we use 0.2s per time-step.", type=float, default=0.2)
 

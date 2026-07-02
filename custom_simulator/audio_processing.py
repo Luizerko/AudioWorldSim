@@ -245,7 +245,6 @@ if __name__ == "__main__":
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
     parser.add_argument("--hop_len", help="Length of hop for STFT computation. This is particularly important for the image resolution that we ara using later on a machine learning model.", type=int, default=294)
     parser.add_argument("--time_step", help="Time step used in the simulation.", type=float, default=0.2)
-
     
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
 

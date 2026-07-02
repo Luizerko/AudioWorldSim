@@ -1,93 +1,130 @@
-![](res/logo.png)
---------------------------------------------------------------------------------
-SoundSpaces is a realistic acoustic simulation platform for audio-visual embodied AI research. From audio-visual navigation, audio-visual exploration to echolocation and audio-visual floor plan reconstruction, this platform expands embodied vision research to a broader scope of topics.
+![Agent navigation path and spectrograms](path/to/header_image.png)
+*Figure 1: Agent navigation path alongside the corresponding left and right ear Mel spectrograms, illustrating the spatial audio output.*
 
-<p align="center"><a href="https://youtu.be/4uiptTUyq30">
-  <img src="res/soundspaces-demo.gif"  height="400"></a>
-<br>
-Click on the gif to view the video. Listen with headphones to hear the spatial sound properly!
-</p>
+# Welcome to AudioWorldSim
 
-[comment]: <> ([<img src="https://i.imgur.com/BdhXQaZ.png" width="80%">]&#40;https://youtu.be/4uiptTUyq30&#41;)
-[comment]: <> (Presentation videos can be found at our [project page]&#40;http://vision.cs.utexas.edu/projects/audio_visual_navigation/&#41;.)
+This is a custom version of [SoundSpaces by Meta](https://github.com/facebookresearch/sound-spaces/tree/main), designed to generate realistic binaural audio datasets for the development of [Audio-Based World Models](https://github.com/Luizerko/audio-nav).
 
-## Motivation
-Moving around in the world is naturally a multisensory experience, but today's embodied agents are deaf---restricted to solely their visual perception of the environment. We introduce audio-visual navigation for complex, acoustically and visually realistic 3D environments. We further build *SoundSpaces*: a first-of-its-kind dataset of audio renderings based on geometrical acoustic simulations for two sets of publicly available 3D environments (Matterport3D and Replica), and we instrument [Habitat](https://github.com/facebookresearch/habitat-api/blob/master/README.md) to support the new sensor, making it possible to insert arbitrary sound sources in an array of real-world scanned environments.
+This project was developed by [Luis Zerkowski](https://luizerko.github.io/) under the supervision of [Luiz Velho](https://lvelho.impa.br/) at [VISGRAF](https://www.visgraf.impa.br/home/index.php), the Vision and Graphics Laboratory at [IMPA](https://impa.br/?lang=en).
 
-## Citing SoundSpaces
-If you use the SoundSpaces platform in your research, please cite the following [paper](https://arxiv.org/pdf/1912.11474.pdf):
-```
-@inproceedings{chen22soundspaces2,
-  title     =     {SoundSpaces 2.0: A Simulation Platform for Visual-Acoustic Learning},
-  author    =     {Changan Chen and Carl Schissler and Sanchit Garg and Philip Kobernik and Alexander Clegg and Paul Calamia and Dhruv Batra and Philip W Robinson and Kristen Grauman},
-  booktitle =     {NeurIPS 2022 Datasets and Benchmarks Track},
-  year      =     {2022}
-}
-@inproceedings{chen20soundspaces,
-  title     =     {SoundSpaces: Audio-Visual Navigaton in 3D Environments},
-  author    =     {Changan Chen and Unnat Jain and Carl Schissler and Sebastia Vicenc Amengual Gari and Ziad Al-Halah and Vamsi Krishna Ithapu and Philip Robinson and Kristen Grauman},
-  booktitle =     {ECCV},
-  year      =     {2020}
-}
-```
-If you use any of the 3D scene assets (Matterport3D, Replica, HM3D, Gibson, etc.), please make sure you cite these papers as well!
+---
 
-## Installation 
-Follow the [step-by-step installation guide](INSTALLATION.md) to install the repo.
+## Introduction
 
-## Usage
-This repo renders audio-visual observations with high acoustic and spatial correspondence. 
-It supports various visual-acoustic learning tasks, including audio-visual embodied navigation, acoustics prediction from egocentric observations, etc.
-In this repo, we provide code for training and evaluating audio-visual navigation agents. 
-For other downstream tasks, please check out each paper's respective repo, 
-e.g., [visual acoustic matching](https://github.com/facebookresearch/visual-acoustic-matching) 
-and [audio-visual dereverberation](https://github.com/facebookresearch/learning-audio-visual-dereverberation).
+The primary goal of this project is to build a realistic binaural audio dataset utilizing the 3D scenes from [Matterport](https://matterport.com/partners/meta) and [Replica](https://github.com/facebookresearch/replica-dataset). We later used this dataset to train an [Audio-Based World Model](https://github.com/Luizerko/audio-nav).
 
-Below we show some example commands for training and evaluating AudioGoal with depth sensor on Replica. 
-1. Training
-```
-python ss_baselines/av_nav/run.py --exp-config ss_baselines/av_nav/config/audionav/replica/train_telephone/audiogoal_depth.yaml --model-dir data/models/replica/audiogoal_depth
-```
-2. Validation (evaluate each checkpoint and generate a validation curve)
-```
-python ss_baselines/av_nav/run.py --run-type eval --exp-config ss_baselines/av_nav/config/audionav/replica/val_telephone/audiogoal_depth.yaml --model-dir data/models/replica/audiogoal_depth
-```
-3. Test the best validation checkpoint based on validation curve
-```
-python ss_baselines/av_nav/run.py --run-type eval --exp-config ss_baselines/av_nav/config/audionav/replica/test_telephone/audiogoal_depth.yaml --model-dir data/models/replica/audiogoal_depth EVAL_CKPT_PATH_DIR data/models/replica/audiogoal_depth/data/ckpt.XXX.pth
-```
-4. Generate demo video with audio
-```
-python ss_baselines/av_nav/run.py --run-type eval --exp-config ss_baselines/av_nav/config/audionav/replica/test_telephone/audiogoal_depth.yaml --model-dir data/models/replica/audiogoal_depth EVAL_CKPT_PATH_DIR data/models/replica/audiogoal_depth/data/ckpt.220.pth VIDEO_OPTION [\"disk\"] TASK_CONFIG.SIMULATOR.USE_RENDERED_OBSERVATIONS False TASK_CONFIG.TASK.SENSORS [\"POINTGOAL_WITH_GPS_COMPASS_SENSOR\",\"SPECTROGRAM_SENSOR\",\"AUDIOGOAL_SENSOR\"] SENSORS [\"RGB_SENSOR\",\"DEPTH_SENSOR\"] EXTRA_RGB True TASK_CONFIG.SIMULATOR.CONTINUOUS_VIEW_CHANGE True DISPLAY_RESOLUTION 512 TEST_EPISODE_COUNT 1
-```
-5. Interactive demo
-```
-python scripts/interactive_demo.py
-```
-5. ***[New]*** Training continuous navigation agent 
-```
-python ss_baselines/av_nav/run.py --exp-config ss_baselines/av_nav/config/audionav/mp3d/train_telephone/audiogoal_depth_ddppo.yaml --model-dir data/models/ss2/mp3d/dav_nav CONTINUOUS True
+To achieve this, we built a custom simulator on top of [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main). It leverages their comprehensive acoustics framework but focuses heavily on the **automatic rollout of random agent navigations**. In our simulator, the agent and sound source start at valid locations on the same level of a 3D scene's navmesh, and the agent navigates to the sound via the shortest path. We also implemented crucial fixes to how continuous sound is composed (more on this in the [Technical Notes](TECHNICALNOTES.md)).
+
+Due to derivation distribution limitations on both 3D scene datasets, we cannot provide open access to the dataset itself. Instead, we are open-sourcing the simulator so you can build your own. 
+
+> **Note on datasets:** To generate your own dataset, you must request access to Matterport and download both Matterport and Replica yourself. While Replica is easier to access, **we strongly advise using Matterport**. The SoundSpaces acoustic framework performs significantly better on Matterport, and the materials support (which adjusts acoustics based on surface materials) only works for it. *Disclaimer: the material support in the latest version of SoundSpaces is highly unreliable and can occasionally corrupt the sound.*
+
+---
+
+## Why Is This Work Important?
+
+If you've tried setting up [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main) before, you know it can be a headache. 
+
+* **Streamlined Dependencies:** The original installation guide builds on the headless [Habitat-Sim](https://github.com/facebookresearch/habitat-sim), but you need the full software to run their continuous simulator. Because they rely on specific, outdated versions of both Habitat-Sim and [Habitat-Lab](https://github.com/facebookresearch/habitat-lab/tree/main), resolving compatibility issues is tricky. We bypassed this by utilizing only their sound simulation infrastructure and created a minimal, targeted simulator on top of it. Since we only cared about the audio output, we ensured we could run continuous navigations rather than just pulling spatialized sound for a single (sound source, agent pose) pair.
+
+* **Crucial Audio Bug Fix:** We patched an audio bug in the original continuous simulator that caused noticeable clicking sounds between simulation steps. These artifacts are annoying to listen to and detrimental to machine learning models, which can easily (and unintentionally) learn these unnatural patterns. You can hear the original artifacting in their [original demo video](https://www.youtube.com/watch?v=4uiptTUyq30). Check the [Technical Notes](TECHNICALNOTES.md) for a deep dive into how we fixed this.
+
+---
+
+## Installation Guide
+
+1. Follow the [installation guide from SoundSpaces](https://github.com/facebookresearch/sound-spaces/blob/main/INSTALLATION.md).
+
+2. When you reach the dataset section, download only [Matterport](https://matterport.com/partners/meta) and/or [Replica](https://github.com/facebookresearch/replica-dataset).
+
+3. **Skip** the SoundSpaces 1.0 instructions and proceed directly to the SoundSpaces 2.0 instructions.
+
+If you can successfully run their `minimal_example.py`, you are ready to run our simulator! If you run into issues, the SoundSpaces [issues page](https://github.com/facebookresearch/sound-spaces/issues) still contains some good troubleshooting discussions.
+
+---
+
+## How to Set Up and Run the Simulation
+
+By now, your `data` directory should look like this:
+
+```text
+data/
+|-- mp3d_material_config.json
+|-- scene_datasets/
+    |-- mp3d/
+    |   |-- mp3d.scene_dataset_config.json
+    |   |-- 17DRP5sb8fy/
+    |   |-- ... # Additional IDs
+    |-- replica/
+        |-- replica.scene_dataset_config.json
+        |-- apartment_0/
+        |-- ... # Additional IDs
 ```
 
-## SoundSpaces 1.0
-We provide acoustically realistic audio renderings for Replica and Matterport3D datasets. 
-The audio renderings exist in the form of pre-rendered room impulse responses (RIR), which allows 
-users to convolve with any source sounds they wish during training. 
-See [dataset](soundspaces/README.md) for more details.  
-Note that we do not open source the rendering code at this time.
+### Running Your First Simulation
 
-## SoundSpaces 2.0
-SoundSpaces 2.0 is a fast, continuous, configurable and generalizable audio-visual simulation platform that allows
-users to render sounds for arbitrary spaces and environments. 
-As a result of rendering accuracy improvements, the rendered IRs are different from SoundSpaces 1.0.
-Check out the [jupyter notebook](examples/soundspaces2_quick_tutorial.ipynb) for a quick tutorial. The documentation of the APIs can be found [here](SoundSpaces2.md).
+Activate your environment with `conda activate ss`, then run a default simulation using a command like this:
 
-## Contributing
-See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
+```bash
+python custom_simulator/simulator.py --dataset_instance mp3d.17DRP5sb8fy --input_audio <path/to/audio.wav>
+```
 
-## License
-SoundSpaces is CC-BY-4.0 licensed, as found in the [LICENSE](LICENSE) file.
+**Configuration Arguments:**
 
-The trained models and the task datasets are considered data derived from the correspondent scene datasets.
-- Matterport3D based task datasets and trained models are distributed with [Matterport3D Terms of Use](http://kaldir.vc.in.tum.de/matterport/MP_TOS.pdf) and under [CC BY-NC-SA 3.0 US license](https://creativecommons.org/licenses/by-nc-sa/3.0/us/).
-- Replica based task datasets, the code for generating such datasets, and trained models are under [Replica license](https://github.com/facebookresearch/Replica-Dataset/blob/master/LICENSE).
+* `--dataset_instance`: Name of the dataset and instance (e.g., `mp3d.17DRP5sb8fy` or `replica.apartment_0`).
+
+* `--input_audio`: Path to your source audio file.
+
+* `--sample_rate`: Sample rate for sound simulation and spatialization (Default: `44100` Hz). The simulator will automatically resample your input audio if it doesn't match.
+
+* `--simulation`: Choose the simulation mode. `'static'` for a single Impulse Response (IR) computation, or `'rollout'` (default) for a specified sequence of actions and observations.
+
+* `--navigation`: *(Rollout only)* Choose how the agent moves. If `'manual'`, you must modify the code to position, orient, and move the agent. If `'target'`, the simulator uses the navmesh to sample a random start point and end point (on the same floor) where the sound source is, navigating the agent via the shortest path.
+
+* `--time_step`: The time duration per step in the kinematic simulation. Since physics are disabled, the agent essentially "teleports." By default, a forward action moves the agent 0.2m, so we use `0.2` seconds as a reasonable default time-step. **Note:** This is a delicate parameter. Too high, and the agent moves unnaturally slow; too low, and it moves too fast. These variations impact how a world model perceives the consequences of its actions. You can adjust the movement scale in the code through `move_forward`, `turn_left` and `turn_right` configurations.
+
+* `--verbose`: Prints and plots some information for debugging.
+
+* `--video`: Generates a video of the navmesh plot and navigation. *(Note: Framerate can be slightly buggy, so video length might differ marginally from the audio length).*
+
+* `--seed`: Set a specific seed for the target navigation. For `mp3d.17DRP5sb8fy`, try `3`, `776`, `249`, `573` (Easy); `487`, `275`, `779` (Medium); or `420`, `378` (Hard).
+
+**Output:** Once the simulation finishes, it will generate an instance folder alongside your input audio. It will follow this hierarchy: `17DRP5sb8fy/simulation/target/seed_<int>/`. Inside, you will find:
+
+1.  `action_list.txt`: The exact sequence of actions taken (1: forward, 2: turn right, 3: turn left). Essential for training world models.
+
+2.  `navigation.jpg`: A plot of the navmesh showing the agent's start point (blue circle), the target sound source (red circle), intermediate shortest-path goals (green circle), positions visited (green x's), and look directions (green arrows).
+
+3.  `output.wav`: The final binaural audio output.
+
+### Creating Your Own Dataset
+
+To run simulations at scale, use the `generate_dataset.sh` script. Make the script executable with `chmod +x generate_dataset.sh`, and update the parameters (number of simulations, parallel workers, `dataset_instance`, and `input_audio`).
+
+To give an idea of what to expect from dataset generation, we provide a performance benchmark. For Matterport instance `17DRP5sb8fy`, we successfully ran 30 parallel workers (consuming ~28GB of RAM) on an Intel Core i9-10980XE (36 cores). Generating 1000 simulations (yielding ~4 hours of audio) took ~3 hours. 
+
+> **Note on stuck runs:** Roughly 1% of simulations get stuck due to drift caused by imprecise turning and forward movements. Don’t worry about these! Even if the agent doesn't reach the target, you still get a valid (albeit shorter) spatial audio output and navigation path.
+
+**Audio Processing Pipeline:** The `generate_dataset.sh` script also triggers `custom_simulator/audio_processing.py`, a tool designed to format the audio specifically for ML tasks. It generates:
+
+* Full Mel spectrograms
+
+* Full raw STFT outputs
+
+* Segmented versions of both, sliced per action (default: 0.2 seconds, tied to your `time_step`).
+
+If you alter your `time_step` or `sample_rate` on `custom_simulator/simulator.py`, remember to update `custom_simulator/audio_processing.py` to match. 
+
+**Quality Check:** After generation, make `dataset_quality.sh` executable (`chmod +x dataset_quality.sh`) and run it to view dataset statistics (total runs, stuck runs, total audio duration in seconds) and flag problematic seeds (on `problematic_seeds.txt`).
+
+---
+
+## Citations
+
+If you found this work helpful, please cite our technical report:
+
+```text
+[Insert citation to arxiv paper here]
+```
+
+Please also ensure you cite [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main), as this simulator is heavily reliant on their foundational framework. We also strongly encourage citing the original datasets ([Matterport](https://matterport.com/partners/meta)/[Replica](https://github.com/facebookresearch/replica-dataset)) if you used them.

@@ -7,4 +7,3 @@ seq 1 1000 | xargs -I {} -P 30 bash -c ' \
     python examples/audio_processing.py --file "/mnt/c/Users/luisvz/Documents/visgraf/soundspaces/data/mp3d_example/sounds/alarm/simulation/target/seed_{}/output.wav" --method stft & \
     wait;
   } \
-'
