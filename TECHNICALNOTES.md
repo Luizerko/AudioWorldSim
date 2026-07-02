@@ -26,11 +26,11 @@ If a past IR is longer than a current IR, it effectively shifts the past audio i
     </tr>
     <tr>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/broken_crossfade.wav" controls></video><br>
+        <video src="assets/broken_crossfade.mp4" controls></video><br>
         <b>Broken Spatialized Sound</b>
       </td>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/fixed_crossfade.wav" controls></video><br>
+        <video src="assets/fixed_crossfade.mp4" controls></video><br>
         <b>Fixed Spatialized Sound</b>
       </td>
     </tr>

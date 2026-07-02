@@ -10,11 +10,11 @@
     </tr>
     <tr>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_dry.wav" controls></video><br>
+        <video src="assets/intro_dry.mp4" controls></video><br>
         <b>Original Dry Sound</b>
       </td>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_spatial.wav" controls></video><br>
+        <video src="assets/intro_spatial.mp4" controls></video><br>
         <b>Spatialized Sound</b>
       </td>
     </tr>
