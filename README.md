@@ -17,7 +17,7 @@ To achieve this, we built a custom simulator on top of [SoundSpaces](https://git
 
 Due to derivation distribution limitations on both 3D scene datasets, we cannot provide open access to the dataset itself. Instead, we are open-sourcing the simulator so you can build your own. 
 
-> **Note on datasets:** To generate your own dataset, you must request access to Matterport and download both Matterport and Replica yourself. While Replica is easier to access, **we strongly advise using Matterport**. The SoundSpaces acoustic framework performs significantly better on Matterport, and the materials support (which adjusts acoustics based on surface materials) only works for it. *Disclaimer: the material support in the latest version of SoundSpaces is highly unreliable and can occasionally corrupt the sound.*
+> **Note on datasets:** To generate your own dataset, you must request access to and download both Matterport and Replica yourself. While Replica is easier to access, **we strongly advise using Matterport**. The SoundSpaces acoustic framework performs significantly better on Matterport, and the materials support (which adjusts acoustics based on surface materials) only works for it. *Disclaimer: the material support in the latest version of SoundSpaces is unreliable and can occasionally corrupt the sound.*
 
 ---
 
@@ -91,7 +91,7 @@ python custom_simulator/simulator.py --dataset_instance mp3d.17DRP5sb8fy --input
 
 **Output:** Once the simulation finishes, it will generate an instance folder alongside your input audio. It will follow this hierarchy: `17DRP5sb8fy/simulation/target/seed_<int>/`. Inside, you will find:
 
-1.  `action_list.txt`: The exact sequence of actions taken (1: forward, 2: turn right, 3: turn left). Essential for training world models.
+1.  `action_list.txt`: The exact sequence of actions taken (1: forward, 2: turn left, 3: turn right). Essential for training world models.
 
 2.  `navigation.jpg`: A plot of the navmesh showing the agent's start point (blue circle), the target sound source (red circle), intermediate shortest-path goals (green circle), positions visited (green x's), and look directions (green arrows).
 
@@ -119,12 +119,12 @@ If you alter your `time_step` or `sample_rate` on `custom_simulator/simulator.py
 
 ---
 
-## Citations
+## Attributions
 
 If you found this work helpful, please cite our technical report:
 
 ```text
-[Insert citation to arxiv paper here]
+[You'll se an arxiv link here soon :)]
 ```
 
-Please also ensure you cite [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main), as this simulator is heavily reliant on their foundational framework. We also strongly encourage citing the original datasets ([Matterport](https://matterport.com/partners/meta)/[Replica](https://github.com/facebookresearch/replica-dataset)) if you used them.
+Please also ensure you cite [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main) and check their [LICENCE](https://github.com/facebookresearch/sound-spaces/blob/main/LICENSE), as this simulator is heavily reliant on their foundational framework. We also strongly encourage citing the original 3D scene datasets ([Matterport](https://matterport.com/partners/meta)/[Replica](https://github.com/facebookresearch/replica-dataset)) if you used them.

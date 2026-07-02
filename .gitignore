@@ -7,3 +7,5 @@ logs/
 my_script
 .idea
 .vscode/
+
+problematic_seeds.txt
