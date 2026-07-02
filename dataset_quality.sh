@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR="/mnt/c/Users/luisvz/Documents/visgraf/soundspaces/data/mp3d_example/sounds/alarm/simulation/target"
+BASE_DIR="/mnt/c/Users/luisvz/Documents/visgraf/soundspaces/data/mp3d/alarm/17DRP5sb8fy/rollout/target"
 OUTPUT_FILE="problematic_seeds.txt"
 
 total_seeds=0

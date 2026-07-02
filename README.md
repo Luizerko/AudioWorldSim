@@ -87,7 +87,7 @@ python custom_simulator/simulator.py --dataset_instance mp3d.17DRP5sb8fy --input
 
 * `--video`: Generates a video of the navmesh plot and navigation. *(Note: Framerate can be slightly buggy, so video length might differ marginally from the audio length).*
 
-* `--seed`: Set a specific seed for the target navigation. For `mp3d.17DRP5sb8fy`, try `3`, `776`, `249`, `573` (Easy); `487`, `275`, `779` (Medium); or `420`, `378` (Hard).
+* `--seed`: Set a specific seed for reproducibility.
 
 **Output:** Once the simulation finishes, it will generate an instance folder alongside your input audio. It will follow this hierarchy: `17DRP5sb8fy/simulation/target/seed_<int>/`. Inside, you will find:
 
