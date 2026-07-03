@@ -38,7 +38,9 @@ To achieve this, we built a custom simulator on top of [SoundSpaces](https://git
 
 Due to derivation distribution limitations on both 3D scene datasets, we cannot provide open access to the dataset itself. Instead, we are open-sourcing the simulator so you can build your own. 
 
-> **Note on datasets:** To generate your own dataset, you must request access to and download both Matterport and Replica yourself. While Replica is easier to access, **we strongly advise using Matterport**. The SoundSpaces acoustic framework performs significantly better on Matterport, and the materials support (which adjusts acoustics based on surface materials) only works for it. *Disclaimer: the material support in the latest version of SoundSpaces is unreliable and can occasionally corrupt the sound.*
+> **Note on datasets:** To generate your own dataset, you must request access to and download both Matterport and Replica yourself. While Replica is easier to access, **we strongly advise using Matterport**. The SoundSpaces acoustic framework performs significantly better on Matterport, and the materials support (which adjusts acoustics based on surface materials) only works for it.
+
+> **Disclaimer:** the material support in the latest version of SoundSpaces is unreliable and can occasionally corrupt the sound.
 
 ---
 
@@ -125,6 +127,7 @@ To run simulations at scale, use the `generate_dataset.sh` script. Make the scri
 To give an idea of what to expect from dataset generation, we provide a performance benchmark. For Matterport instance `17DRP5sb8fy`, we successfully ran 30 parallel workers (consuming ~28GB of RAM) on an Intel Core i9-10980XE (36 cores). Generating 1000 simulations (yielding ~4 hours of audio) took ~3 hours. 
 
 > **Note on stuck runs:** ~1% of simulations get stuck due to drift caused by imprecise turning and forward movements. Don’t worry about these! Even if the agent doesn't reach the target, you still get a valid (albeit shorter) spatial audio output and navigation path. It is worth noting that ~5% of runs fail due to crashes in the SoundSpaces simulator. While we were not able to find a workaround in time, this edge case affects only a small fraction of the dataset, ensuring ample data can still be successfully generated.
+<br>
 
 **Audio Processing Pipeline:** The `generate_dataset.sh` script also triggers `custom_simulator/audio_processing.py`, a tool designed to format the audio specifically for ML tasks. For each seed, it generates:
 
