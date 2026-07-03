@@ -1,26 +1,3 @@
-<!-- <div align="center">
-  <table style="border: none; border-collapse: collapse;">
-    <tr>
-      <td align="center" style="border: none; padding-bottom: 0;">
-        <img src="assets/intro_navigation.png" alt="Navigation Path" width="398" />
-      </td>
-      <td align="center" style="border: none; padding-bottom: 0;">
-        <img src="assets/intro_spectrograms.png" alt="Left and Right Ear Spectrograms" width="350" />
-      </td>
-    </tr>
-    <tr>
-      <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_dry.wav" controls></video><br>
-        <b>Original Dry Sound</b>
-      </td>
-      <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_spatial.wav" controls></video><br>
-        <b>Spatialized Sound</b>
-      </td>
-    </tr>
-  </table>
-</div> -->
-
 <p align="center">
   <br>
   <img src="assets/intro_navigation.png" alt="Navigation Path" width="398" />
@@ -28,14 +5,22 @@
   <br>
 </p>
 
-<p align="center">
-  <br>
-  <video src="https://github.com/Luizerko/AudioWorldSim/blob/main/assets/intro_dry.mp4?raw=true" width="398" controls></video>
-  <video src="https://github.com/Luizerko/AudioWorldSim/blob/main/assets/intro_spatial.mp4" width="350" controls></video>
-</p>
+<div align="center">
+  <table width="750" height="300">
+    <tr>
+      <td align="center" width="375" height="10">
+        <video src="https://github.com/user-attachments/assets/541448d0-57e1-4874-82a4-ae5d3d38c718" controls></video>
+        <b>Original Dry Sound</b>
+      </td>
+      <td align="center" width="375" height="10">
+        <video src="https://github.com/user-attachments/assets/eaf6176a-b589-4d5b-b225-d115c33f27c1" controls></video>
+        <b>Spatialized Sound</b>
+      </td>
+    </tr>
+  </table>
+</div>
 
-
-*Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the distinct interaural volume differences when the agent rounds a corner—a spatial acoustic effect clearly reflected in the spectrograms.*
+*Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the interaural volume differences when the agent rounds a corner, a spatial acoustic effect clearly reflected in the spectrograms.*
 
 # Welcome to AudioWorldSim
 
@@ -125,7 +110,7 @@ python custom_simulator/simulator.py --dataset_instance mp3d.17DRP5sb8fy --input
 
 * `--seed`: Set a specific seed for reproducibility.
 
-**Output:** Once the simulation finishes, it will generate an instance folder alongside your input audio. It will follow this hierarchy: `17DRP5sb8fy/simulation/target/seed_<int>/`. Inside, you will find:
+**Output:** Once the simulation finishes, it will generate an instance folder alongside your input audio. It will follow this hierarchy: `17DRP5sb8fy/rollout/target/seed_<int>/`. Inside, you will find:
 
 1.  `action_list.txt`: The exact sequence of actions taken (1: forward, 2: turn left, 3: turn right). Essential for training world models.
 
@@ -139,15 +124,15 @@ To run simulations at scale, use the `generate_dataset.sh` script. Make the scri
 
 To give an idea of what to expect from dataset generation, we provide a performance benchmark. For Matterport instance `17DRP5sb8fy`, we successfully ran 30 parallel workers (consuming ~28GB of RAM) on an Intel Core i9-10980XE (36 cores). Generating 1000 simulations (yielding ~4 hours of audio) took ~3 hours. 
 
-> **Note on stuck runs:** Roughly 1% of simulations get stuck due to drift caused by imprecise turning and forward movements. Don’t worry about these! Even if the agent doesn't reach the target, you still get a valid (albeit shorter) spatial audio output and navigation path.
+> **Note on stuck runs:** ~1% of simulations get stuck due to drift caused by imprecise turning and forward movements. Don’t worry about these! Even if the agent doesn't reach the target, you still get a valid (albeit shorter) spatial audio output and navigation path. It is worth noting that ~5% of runs fail due to crashes in the SoundSpaces simulator. While we were not able to find a workaround in time, this edge case affects only a small fraction of the dataset, ensuring ample data can still be successfully generated.
 
-**Audio Processing Pipeline:** The `generate_dataset.sh` script also triggers `custom_simulator/audio_processing.py`, a tool designed to format the audio specifically for ML tasks. It generates:
+**Audio Processing Pipeline:** The `generate_dataset.sh` script also triggers `custom_simulator/audio_processing.py`, a tool designed to format the audio specifically for ML tasks. For each seed, it generates:
 
-* Full Mel spectrograms
+* `full_mel.npz`: Full Mel spectrogram
 
-* Full raw STFT outputs
+* `full_stft.npz`: Full raw STFT output
 
-* Segmented versions of both, sliced per action (default: 0.2 seconds, tied to your `time_step`).
+* `split_mel.npz` and `split_stft.npz`: Segmented versions of both, sliced per action (default: 0.2 seconds, tied to your `time_step`).
 
 If you alter your `time_step` or `sample_rate` on `custom_simulator/simulator.py`, remember to update `custom_simulator/audio_processing.py` to match. 
 
