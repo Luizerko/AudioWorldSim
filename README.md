@@ -10,11 +10,11 @@
     </tr>
     <tr>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_dry.mp4" controls></video><br>
+        <video src="assets/intro_dry.wav" controls></video><br>
         <b>Original Dry Sound</b>
       </td>
       <td align="center" style="border: none; padding-bottom: 0;">
-        <video src="assets/intro_spatial.mp4" controls></video><br>
+        <video src="assets/intro_spatial.wav" controls></video><br>
         <b>Spatialized Sound</b>
       </td>
     </tr>
@@ -30,7 +30,7 @@
 
 <p align="center">
   <br>
-  <video src="https://github.com/Luizerko/AudioWorldSim/blob/main/assets/intro_dry.mp4" width="398" controls></video>
+  <video src="https://github.com/Luizerko/AudioWorldSim/blob/main/assets/intro_dry.mp4?raw=true" width="398" controls></video>
   <video src="https://github.com/Luizerko/AudioWorldSim/blob/main/assets/intro_spatial.mp4" width="350" controls></video>
 </p>
 
