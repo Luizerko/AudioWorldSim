@@ -1,4 +1,4 @@
-<div align="center">
+<!-- <div align="center">
   <table style="border: none; border-collapse: collapse;">
     <tr>
       <td align="center" style="border: none; padding-bottom: 0;">
@@ -19,7 +19,19 @@
       </td>
     </tr>
   </table>
-</div>
+</div> -->
+
+<p align="center">
+  <br>
+  <img src="assets/intro_navigation.png" alt="Navigation Path" width="398" />
+  <img src="assets/intro_spectrograms.png" alt="Left and Right Ear Spectrograms" width="350" />
+  <br>
+</p>
+
+| Dry Sound | Spatialized Sound |
+| :---: | :---: |
+| https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_dry.mp4 | https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_spatial.mp4 |
+
 
 *Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the distinct interaural volume differences when the agent rounds a corner—a spatial acoustic effect clearly reflected in the spectrograms.*
 
