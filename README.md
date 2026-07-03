@@ -30,7 +30,7 @@
 
 | Dry Sound | Spatialized Sound |
 | :---: | :---: |
-| https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_dry.mp4 | https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_spatial.mp4 |
+| [intro_dry](https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_dry.mp4) | https://github.com/Luizerko/AudioWorldSim/tree/main/assets/intro_spatial.mp4 |
 
 
 *Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the distinct interaural volume differences when the agent rounds a corner—a spatial acoustic effect clearly reflected in the spectrograms.*
