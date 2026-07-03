@@ -60,6 +60,8 @@ If you've tried setting up [SoundSpaces](https://github.com/facebookresearch/sou
 
 2. When you reach the dataset section, download only [Matterport](https://matterport.com/partners/meta) and/or [Replica](https://github.com/facebookresearch/replica-dataset).
 
+> SoundSpaces offers an MP3D test scene in their [Matterport3D documentation](https://github.com/facebookresearch/habitat-sim/blob/main/DATASETS.md#matterport3d-mp3d-dataset). Since their official download command is currently broken, we've provided a `download_mp3d_example.py` script that fixes the issue and fetches the exact same scene for you. 
+
 3. **Skip** the SoundSpaces 1.0 instructions and proceed directly to the SoundSpaces 2.0 instructions.
 
 If you can successfully run their `minimal_example.py`, you are ready to run our simulator! If you run into issues, the SoundSpaces [issues page](https://github.com/facebookresearch/sound-spaces/issues) still contains some good troubleshooting discussions.
