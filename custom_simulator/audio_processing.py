@@ -40,6 +40,7 @@ def process_binaural_audio_mel(file: str, sr: int = 44100, hop_len: int = 147, p
     mel_right = librosa.power_to_db(mel_right, ref=max_power)
 
     # Saving full mel spectrograms
+    np.savez_compressed(file.replace('output.wav', 'mel_ref_power.npz'), ref_power=max_power)
     np.savez_compressed(file.replace('output.wav', 'full_mel.npz'), left=mel_left, right=mel_right)
 
     # (Potentially) Plotting Mel spectrograms
