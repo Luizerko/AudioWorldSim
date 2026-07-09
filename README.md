@@ -135,6 +135,8 @@ To give an idea of what to expect from dataset generation, we provide a performa
 
 * `full_mel.npz`: Full Mel spectrogram
 
+* `mel_ref_power.npz`: Max power reference for Mel spectrogram (important for audio reconstruction from Mel spectrograms).
+
 * `full_stft.npz`: Full raw STFT output
 
 * `split_mel.npz` and `split_stft.npz`: Segmented versions of both, sliced per action (default: 0.2 seconds, tied to your `time_step`).
