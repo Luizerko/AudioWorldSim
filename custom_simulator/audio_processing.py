@@ -150,7 +150,7 @@ def process_binaural_audio_stft(file: str, sr: int = 44100, hop_len: int = 147, 
     return stft_left, stft_right, mag_left, mag_right, phase_left, phase_right, cos_left, cos_right, sin_left, sin_right
 
 # Given the processed audio data, we split it so we can later input it to our machine learning model
-def split_data(data_list: list, file: str, sr: int = 44100, hop_len: int = 294, time_step: float = 0.2, plot: bool = False, method: str = 'mel'):
+def split_data(data_list: list, file: str, sr: int = 44100, hop_len: int = 147, time_step: float = 0.2, plot: bool = False, method: str = 'mel'):
     # Computing image resolution and number of images
     samples_per_action = sr * time_step
     frames_per_action = int(samples_per_action/hop_len)
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument("--method", help="Choosing a method to process the audio.", type=str, default='mel', choices=['mel', 'stft'])
     
     parser.add_argument("--sample_rate", help="Sample rate for sound simulation and later for audio spatialization.", type=int, default=44100)
-    parser.add_argument("--hop_len", help="Length of hop for STFT computation. This is particularly important for the image resolution that we ara using later on a machine learning model.", type=int, default=294)
+    parser.add_argument("--hop_len", help="Length of hop for STFT computation. This is particularly important for the image resolution that we ara using later on a machine learning model.", type=int, default=147)
     parser.add_argument("--time_step", help="Time step used in the simulation.", type=float, default=0.2)
     
     parser.add_argument("--verbose", help="Print and plot everything. Meant for debugging.", action='store_true')
