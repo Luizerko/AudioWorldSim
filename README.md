@@ -1,3 +1,5 @@
+<img width="677" height="369" alt="Gemini_Generated_Image_s1yezrs1yezrs1ye-removebg-preview" src="https://github.com/user-attachments/assets/05cbf0ba-ba27-4f83-83fc-c550ddc153eb" />
+
 <p align="center">
   <br>
   <img src="assets/intro_navigation.png" alt="Navigation Path" width="398" />
@@ -152,7 +154,7 @@ If you alter your `time_step` or `sample_rate` on `custom_simulator/simulator.py
 If you found this work helpful, please cite our technical report:
 
 ```text
-[You'll se an arxiv link here soon :)]
+[You'll see an arxiv link here soon :)]
 ```
 
 Please also ensure you cite [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main) and check their [LICENCE](https://github.com/facebookresearch/sound-spaces/blob/main/LICENSE), as this simulator is heavily reliant on their foundational framework. We also strongly encourage citing the original 3D scene datasets ([Matterport](https://matterport.com/partners/meta)/[Replica](https://github.com/facebookresearch/replica-dataset)) if you used them.
