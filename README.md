@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="800" height="250" alt="image-removebg-preview" src="https://github.com/user-attachments/assets/2c4b0a92-0385-40ca-b2e9-598d47948e83"/>
+  <img width="800" height="250" alt="logo" src="assets/logo.png"/>
 </p>
 
 # Welcome to AudioWorldSim
