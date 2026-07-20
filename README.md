@@ -1,4 +1,12 @@
-<img width="677" height="369" alt="Gemini_Generated_Image_s1yezrs1yezrs1ye-removebg-preview" src="https://github.com/user-attachments/assets/05cbf0ba-ba27-4f83-83fc-c550ddc153eb" />
+<p align="center">
+  <img width="800" height="250" alt="image-removebg-preview" src="https://github.com/user-attachments/assets/2c4b0a92-0385-40ca-b2e9-598d47948e83"/>
+</p>
+
+# Welcome to AudioWorldSim
+
+This is a custom version of [SoundSpaces by Meta](https://github.com/facebookresearch/sound-spaces/tree/main), designed to generate realistic binaural audio datasets for the development of [Audio-Based World Models](https://github.com/Luizerko/audio-nav).
+
+This project was developed by [Luis Zerkowski](https://luizerko.github.io/) under the supervision of [Luiz Velho](https://lvelho.impa.br/) at [VISGRAF](https://www.visgraf.impa.br/home/index.php), the Vision and Graphics Laboratory at [IMPA](https://impa.br/?lang=en).
 
 <p align="center">
   <br>
@@ -23,12 +31,6 @@
 </div>
 
 *Figure 1: Visual and auditory breakdown of an agent's navigation. The navmesh path (left) correlates directly with the left and right ear Mel spectrograms (right). Use the audio players to compare the original dry sound with the spatialized output. Notice the interaural volume differences when the agent rounds a corner, a spatial acoustic effect clearly reflected in the spectrograms.*
-
-# Welcome to AudioWorldSim
-
-This is a custom version of [SoundSpaces by Meta](https://github.com/facebookresearch/sound-spaces/tree/main), designed to generate realistic binaural audio datasets for the development of [Audio-Based World Models](https://github.com/Luizerko/audio-nav).
-
-This project was developed by [Luis Zerkowski](https://luizerko.github.io/) under the supervision of [Luiz Velho](https://lvelho.impa.br/) at [VISGRAF](https://www.visgraf.impa.br/home/index.php), the Vision and Graphics Laboratory at [IMPA](https://impa.br/?lang=en).
 
 ---
 
