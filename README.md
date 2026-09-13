@@ -156,7 +156,15 @@ If you alter your `time_step` or `sample_rate` on `custom_simulator/simulator.py
 If you found this work helpful, please cite our technical report:
 
 ```text
-[You'll see an arxiv link here soon :)]
+@misc{zerkowski2026audioworldsimrealisticbinauralaudio,
+      title={AudioWorldSim: Realistic Binaural Audio Datasets For World Models}, 
+      author={Luis Vitor Zerkowski and Luiz Velho},
+      year={2026},
+      eprint={2608.21075},
+      archivePrefix={arXiv},
+      primaryClass={cs.SD},
+      url={https://arxiv.org/abs/2608.21075}, 
+}
 ```
 
 Please also ensure you cite [SoundSpaces](https://github.com/facebookresearch/sound-spaces/tree/main) and check their [LICENCE](https://github.com/facebookresearch/sound-spaces/blob/main/LICENSE), as this simulator is heavily reliant on their foundational framework. We also strongly encourage citing the original 3D scene datasets ([Matterport](https://matterport.com/partners/meta)/[Replica](https://github.com/facebookresearch/replica-dataset)) if you used them.
